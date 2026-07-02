@@ -46,7 +46,8 @@ Ele consolida:
 21. `21-swagger-organization-plan.md`
 22. `22-testing-strategy-by-slice.md`
 23. `23-first-agent-execution-pack.md`
-24. `adr/0001-core-decisions.md`
+24. `24-source-material-consolidated.md`
+25. `adr/0001-core-decisions.md`
 
 ## Fonte de verdade por assunto
 
@@ -73,6 +74,7 @@ Ele consolida:
 - Organização Swagger: `21-swagger-organization-plan.md`
 - Estratégia de testes por slice: `22-testing-strategy-by-slice.md`
 - Primeiro pacote de execução: `23-first-agent-execution-pack.md`
+- Origem consolidada do projeto: `24-source-material-consolidated.md`
 - Decisões formais: `adr/`
 
 ## Decisões estruturantes já assumidas

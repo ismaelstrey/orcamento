@@ -16,10 +16,9 @@ Neste momento, o foco está em:
 
 ## Fontes de origem
 
-Os materiais-base que originaram este planejamento estão no diretório raiz:
+Os materiais-base que originaram este planejamento foram consolidados em:
 
-- `PRD_Intelligent_Quote_Platform.md`
-- `converssachatgpt.txt`
+- `docs/planning/24-source-material-consolidated.md`
 
 ## Estrutura criada
 
@@ -51,6 +50,7 @@ docs/
     21-swagger-organization-plan.md
     22-testing-strategy-by-slice.md
     23-first-agent-execution-pack.md
+    24-source-material-consolidated.md
     adr/
       README.md
       0001-core-decisions.md
@@ -87,7 +87,8 @@ Ordem recomendada de leitura:
 22. `docs/planning/21-swagger-organization-plan.md`
 23. `docs/planning/22-testing-strategy-by-slice.md`
 24. `docs/planning/23-first-agent-execution-pack.md`
-25. `docs/planning/adr/0001-core-decisions.md`
+25. `docs/planning/24-source-material-consolidated.md`
+26. `docs/planning/adr/0001-core-decisions.md`
 
 ## Direção estratégica consolidada
 
