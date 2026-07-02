@@ -1,0 +1,18 @@
+import { PrismaClient } from "@prisma/client";
+
+declare global {
+  var prismaGlobal: PrismaClient | undefined;
+}
+
+/**
+ * Reutiliza o PrismaClient em desenvolvimento para evitar múltiplas instâncias.
+ */
+export const prisma =
+  globalThis.prismaGlobal ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalThis.prismaGlobal = prisma;
+}

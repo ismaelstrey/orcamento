@@ -358,6 +358,7 @@ const importQuoteJsonItemSchema = z.object({
 
 ```ts
 const importQuoteJsonRequestSchema = z.object({
+  customerId: z.string().min(1),
   schemaVersion: z.string().min(1),
   currency: z.string().length(3),
   category: z.string().min(1).max(120),

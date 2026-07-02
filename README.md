@@ -4,15 +4,17 @@ Repositório de planejamento do projeto **IQP - Intelligent Quote Platform**, um
 
 ## Estado Atual
 
-Este repositório está em fase de **planejamento estruturado**.
+Este repositório já possui **planejamento consolidado, monorepo bootstrapado e slices centrais do MVP implementados**.
 
-Neste momento, o foco está em:
+Neste momento, a base validada inclui:
 
-- consolidar visão de produto;
-- definir escopo realista de MVP;
-- formalizar arquitetura técnica;
-- preparar documentação para desenvolvimento guiado por IA/agentes;
-- reduzir ambiguidade antes do início da implementação.
+- autenticação JWT com refresh token e RBAC tenant-aware;
+- CRUD de clientes;
+- catálogo base com categorias, marcas, produtos e especificações;
+- orçamentos com versionamento, compartilhamento público e exportação/importação JSON;
+- geração de PDF por `quoteVersion`;
+- dashboard inicial, auditoria mínima e testes críticos;
+- migration inicial aplicada em banco real e seed bootstrap validado.
 
 ## Fontes de origem
 
@@ -99,12 +101,57 @@ Ordem recomendada de leitura:
 - A arquitetura já nasce **tenant-aware**, mas a complexidade comercial de multiempresa completa pode ser liberada por fase.
 - A documentação é tratada como fonte de verdade para orientar pessoas e agentes de IA.
 
+## Scripts de qualidade
+
+Comandos principais do workspace:
+
+- `corepack pnpm lint`
+- `corepack pnpm typecheck`
+- `corepack pnpm test`
+- `corepack pnpm db:generate`
+- `corepack pnpm db:migrate`
+- `corepack pnpm db:seed`
+
+Cobertura atualmente adicionada:
+
+- testes unitários do `@orcamento/auth`;
+- testes críticos de `quotes` no app `web`;
+- estratégia de testes detalhada em `docs/planning/22-testing-strategy-by-slice.md`.
+
+## Bootstrap do banco
+
+O seed inicial cria ou atualiza os registros base do ambiente:
+
+- `Tenant` bootstrap com slug configurável;
+- roles `owner`, `admin` e `seller`;
+- usuário owner inicial com senha hash;
+- vínculo do owner com a role `owner`.
+
+Variáveis de ambiente documentadas em `.env.example`:
+
+- `BOOTSTRAP_TENANT_NAME`
+- `BOOTSTRAP_TENANT_SLUG`
+- `BOOTSTRAP_OWNER_NAME`
+- `BOOTSTRAP_OWNER_EMAIL`
+- `BOOTSTRAP_OWNER_PASSWORD`
+
+Valores padrão do bootstrap:
+
+- tenant: `Bootstrap Tenant`
+- slug: `bootstrap-tenant`
+- owner: `Owner Bootstrap`
+- email: `owner@bootstrap.local`
+
+## Observações operacionais
+
+- O `prisma/seed.ts` carrega `.env` explicitamente para funcionar fora do runtime do Next.js.
+- O ambiente Windows exigiu `pnpm` com `--store-dir .pnpm-store` e `--config.package-import-method=copy`.
+- Para evitar inconsistências de linking no workspace, a reinstalação mais estável foi com `--node-linker=hoisted`.
+
 ## Próximo passo recomendado
 
-Antes de iniciar qualquer código, revisar e aprovar:
+Com a base operacional validada, o próximo passo mais útil é:
 
-- escopo do MVP;
-- decisões arquiteturais centrais;
-- estratégia de dados, scraping e IA;
-- fluxo de trabalho com agentes;
-- backlog inicial de execução.
+- substituir secrets JWT placeholder por valores definitivos no `.env`, se ainda houver placeholders;
+- validar login real com o usuário owner bootstrap;
+- subir a aplicação e testar o fluxo ponta a ponta de autenticação, catálogo e criação de orçamento.

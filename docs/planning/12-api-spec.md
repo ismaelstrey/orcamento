@@ -317,6 +317,7 @@ Request:
 
 ```json
 {
+  "customerId": "cus_1",
   "schemaVersion": "1.0.0",
   "currency": "BRL",
   "category": "Computador",

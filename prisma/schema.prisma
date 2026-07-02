@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserStatus {
+  active
+  invited
+  disabled
+}
+
+enum QuoteStatus {
+  draft
+  published
+  archived
+}
+
+enum QuoteSourceType {
+  manual
+  import_json
+  ai_future
+}
+
+enum QuoteShareLinkStatus {
+  active
+  revoked
+  expired
+}
+
+model Tenant {
+  id        String        @id @default(cuid())
+  name      String
+  slug      String        @unique
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  users     User[]
+  roles     Role[]
+  sessions  AuthSession[]
+  customers Customer[]
+  categories Category[]
+  brands    Brand[]
+  products  Product[]
+  quotes    Quote[]
+  quoteShareLinks QuoteShareLink[]
+  auditLogs AuditLog[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  tenantId     String
+  name         String
+  email        String
+  passwordHash String
+  status       UserStatus    @default(active)
+  lastLoginAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles        UserRole[]
+  sessions     AuthSession[]
+  auditLogs    AuditLog[]    @relation("AuditActor")
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Role {
+  id        String      @id @default(cuid())
+  tenantId  String
+  code      String
+  name      String
+  createdAt DateTime    @default(now())
+
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users     UserRole[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+model UserRole {
+  userId    String
+  roleId    String
+  createdAt DateTime    @default(now())
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model AuthSession {
+  id               String      @id @default(cuid())
+  tenantId         String
+  userId           String
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime    @default(now())
+
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([userId])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  email     String?
+  phone     String?
+  document  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quotes    Quote[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, email])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  slug      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, name])
+}
+
+model Brand {
+  id        String    @id @default(cuid())
+  tenantId  String
+  name      String
+  slug      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, name])
+}
+
+model Product {
+  id              String                 @id @default(cuid())
+  tenantId        String
+  categoryId      String
+  brandId         String?
+  name            String
+  sku             String?
+  description     String?
+  basePriceCents  Int
+  currency        String
+  isActive        Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category        Category               @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brand           Brand?                 @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  specifications  ProductSpecification[]
+
+  @@index([tenantId])
+  @@index([tenantId, name])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, brandId])
+}
+
+model ProductSpecification {
+  id        String   @id @default(cuid())
+  productId String
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Quote {
+  id            String       @id @default(cuid())
+  tenantId      String
+  customerId    String
+  title         String
+  status        QuoteStatus  @default(draft)
+  publicNotes   String?
+  internalNotes String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  versions      QuoteVersion[]
+  shareLinks    QuoteShareLink[]
+
+  @@index([tenantId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+}
+
+model QuoteVersion {
+  id             String          @id @default(cuid())
+  quoteId        String
+  versionNumber  Int
+  label          String?
+  currency       String
+  subtotalCents  Int
+  discountCents  Int             @default(0)
+  totalCents     Int
+  sourceType     QuoteSourceType @default(manual)
+  createdAt      DateTime        @default(now())
+
+  quote          Quote           @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  items          QuoteItem[]
+  shareLinks     QuoteShareLink[]
+
+  @@unique([quoteId, versionNumber])
+  @@index([quoteId])
+}
+
+model QuoteItem {
+  id                 String       @id @default(cuid())
+  quoteVersionId     String
+  productId          String?
+  productName        String
+  productDescription String?
+  quantity           Int
+  unitPriceCents     Int
+  totalPriceCents    Int
+  createdAt          DateTime     @default(now())
+
+  quoteVersion       QuoteVersion @relation(fields: [quoteVersionId], references: [id], onDelete: Cascade)
+
+  @@index([quoteVersionId])
+  @@index([productId])
+}
+
+model QuoteShareLink {
+  id             String              @id @default(cuid())
+  tenantId       String
+  quoteId        String
+  quoteVersionId String
+  slug           String              @unique
+  status         QuoteShareLinkStatus @default(active)
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quote          Quote               @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteVersion   QuoteVersion        @relation(fields: [quoteVersionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, quoteId])
+  @@index([quoteId, quoteVersionId])
+  @@index([slug, status])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  tenantId    String?
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String
+  payloadJson Json?
+  createdAt   DateTime  @default(now())
+
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actorUser   User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, entityType, entityId])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
