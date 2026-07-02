@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useDashboard } from "@/hooks/useDashboard";
 
 const metricCards = [
@@ -41,11 +42,48 @@ function formatMetric(value: number): string {
 }
 
 export default function Home() {
-  const { summary, isLoading, error, loadDashboardSummary } = useDashboard();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const {
+    accessToken,
+    user,
+    tenant,
+    roles,
+    isAuthenticated,
+    isBootstrapping,
+    isSubmitting,
+    error: authError,
+    login,
+    logout
+  } = useAuth();
+  const { summary, isLoading, error, loadDashboardSummary } =
+    useDashboard(accessToken);
+
+  const roleLabel = useMemo(() => roles.join(", "), [roles]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     void loadDashboardSummary();
-  }, [loadDashboardSummary]);
+  }, [isAuthenticated, loadDashboardSummary]);
+
+  /**
+   * Realiza o login do frontend antes de liberar os dados privados do dashboard.
+   */
+  async function handleLoginSubmit(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+
+    try {
+      await login(email.trim(), password);
+      setPassword("");
+    } catch {
+      // O erro já fica refletido no estado do hook.
+    }
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden px-6 py-10 md:px-8 md:py-12">
@@ -73,40 +111,150 @@ export default function Home() {
               Situação
             </span>
             <span>
-              {isLoading
-                ? "Sincronizando indicadores..."
-                : "Resumo carregado do endpoint /api/v1/dashboard/summary"}
+              {isBootstrapping
+                ? "Restaurando sessão do navegador..."
+                : isAuthenticated
+                  ? isLoading
+                    ? "Sincronizando indicadores..."
+                    : "Resumo carregado do endpoint /api/v1/dashboard/summary"
+                  : "Faça login para acessar os dados privados do dashboard."}
             </span>
-            <button
-              type="button"
-              onClick={() => void loadDashboardSummary()}
-              className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 font-medium text-sky-100 transition hover:bg-sky-400/20"
-            >
-              Atualizar resumo
-            </button>
+            {isAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => void loadDashboardSummary()}
+                className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 font-medium text-sky-100 transition hover:bg-sky-400/20"
+              >
+                Atualizar resumo
+              </button>
+            ) : null}
           </div>
         </header>
 
-        {error ? (
-          <section className="rounded-[1.75rem] border border-rose-400/20 bg-rose-500/10 p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.24em] text-rose-200/80">
-              Falha ao carregar
-            </p>
-            <h2 className="mt-3 text-2xl text-white">Não foi possível abrir o dashboard.</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-rose-100/80">
-              {error}
-            </p>
-            <button
-              type="button"
-              onClick={() => void loadDashboardSummary()}
-              className="mt-5 inline-flex rounded-full border border-rose-300/20 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-            >
-              Tentar novamente
-            </button>
-          </section>
-        ) : null}
+        {!isAuthenticated ? (
+          <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+              <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                Acesso autenticado
+              </p>
+              <h2 className="mt-4 text-3xl text-white">
+                Entre com sua conta para carregar o dashboard.
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">
+                Os indicadores são privados e dependem do header
+                <code className="mx-1 rounded bg-white/10 px-2 py-1 text-xs text-white">
+                  Authorization
+                </code>
+                emitido após o login.
+              </p>
 
-        <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr]">
+              <form className="mt-8 grid gap-4" onSubmit={handleLoginSubmit}>
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>E-mail</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="owner@bootstrap.local"
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    autoComplete="email"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Senha</span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Sua senha de acesso"
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    autoComplete="current-password"
+                    required
+                  />
+                </label>
+
+                {authError ? (
+                  <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                    {authError}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isBootstrapping}
+                  className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSubmitting ? "Entrando..." : "Entrar e carregar dashboard"}
+                </button>
+              </form>
+            </article>
+
+            <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/40 p-6">
+              <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                Escopo desbloqueado
+              </p>
+              <ul className="mt-5 space-y-3">
+                {nextActions.map((action) => (
+                  <li
+                    key={action}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-100"
+                  >
+                    {action}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </section>
+        ) : (
+          <>
+            <section className="rounded-[1.75rem] border border-emerald-400/15 bg-emerald-500/10 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-emerald-200/80">
+                    Sessão autenticada
+                  </p>
+                  <h2 className="mt-2 text-2xl text-white">
+                    {user?.name} conectado em {tenant?.name}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-emerald-50/80">
+                    Tenant: {tenant?.slug} | Perfis: {roleLabel}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                >
+                  Sair
+                </button>
+              </div>
+            </section>
+
+            {error ? (
+              <section className="rounded-[1.75rem] border border-rose-400/20 bg-rose-500/10 p-6">
+                <p className="font-mono text-xs uppercase tracking-[0.24em] text-rose-200/80">
+                  Falha ao carregar
+                </p>
+                <h2 className="mt-3 text-2xl text-white">
+                  Não foi possível abrir o dashboard.
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-rose-100/80">
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void loadDashboardSummary()}
+                  className="mt-5 inline-flex rounded-full border border-rose-300/20 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                >
+                  Tentar novamente
+                </button>
+              </section>
+            ) : null}
+
+            <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr]">
           <section className="grid gap-5">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {metricCards.map((card) => (
@@ -244,7 +392,9 @@ export default function Home() {
               </div>
             </article>
           </aside>
-        </div>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

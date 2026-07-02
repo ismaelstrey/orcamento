@@ -34,7 +34,7 @@ function getErrorMessage(data: ErrorEnvelope | unknown, fallback: string): strin
 /**
  * Centraliza o carregamento do resumo do dashboard para manter a UI desacoplada da API.
  */
-export function useDashboard() {
+export function useDashboard(accessToken: string | null) {
   const [state, setState] = useState<UseDashboardState>({
     summary: null,
     isLoading: false,
@@ -42,6 +42,16 @@ export function useDashboard() {
   });
 
   const loadDashboardSummary = useCallback(async () => {
+    if (!accessToken) {
+      setState({
+        summary: null,
+        isLoading: false,
+        error: null
+      });
+
+      return null;
+    }
+
     setState((currentState) => ({
       ...currentState,
       isLoading: true,
@@ -52,7 +62,8 @@ export function useDashboard() {
       const response = await fetch("/api/v1/dashboard/summary", {
         method: "GET",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`
         }
       });
 
@@ -83,7 +94,7 @@ export function useDashboard() {
 
       throw error;
     }
-  }, []);
+  }, [accessToken]);
 
   return {
     ...state,
