@@ -1,0 +1,1073 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuthContext } from "@/components/auth/authProvider";
+import { useCatalog } from "@/hooks/useCatalog";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useQuotes } from "@/hooks/useQuotes";
+import type { CustomerResponse } from "@/lib/customers/schemas";
+import type { ProductResponse } from "@/lib/catalog/schemas";
+import type {
+  CreateQuoteRequest,
+  CreateQuoteVersionRequest,
+  ExportQuoteJsonResponse,
+  PdfResponse,
+  QuoteDetail,
+  QuoteSummary,
+  ShareLinkResponse
+} from "@/lib/quotes/schemas";
+
+interface QuoteCreateFormValues {
+  customerId: string;
+  title: string;
+  publicNotes: string;
+  internalNotes: string;
+  productId: string;
+  quantity: string;
+}
+
+interface QuoteRevisionItemFormValues {
+  id: string;
+  productId: string;
+  productName: string;
+  productDescription: string;
+  quantity: string;
+  unitPrice: string;
+}
+
+interface QuoteRevisionFormValues {
+  label: string;
+  items: QuoteRevisionItemFormValues[];
+}
+
+const initialQuoteCreateFormValues: QuoteCreateFormValues = {
+  customerId: "",
+  title: "",
+  publicNotes: "",
+  internalNotes: "",
+  productId: "",
+  quantity: "1"
+};
+
+const initialQuoteRevisionFormValues: QuoteRevisionFormValues = {
+  label: "",
+  items: []
+};
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatCurrency(valueInCents: number, currency: string): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency
+  }).format(valueInCents / 100);
+}
+
+function formatStatus(value: QuoteSummary["status"]): string {
+  if (value === "draft") {
+    return "Draft";
+  }
+
+  if (value === "published") {
+    return "Publicado";
+  }
+
+  return "Arquivado";
+}
+
+export default function QuotesPage() {
+  const { accessToken, tenant } = useAuthContext();
+  const { loadCustomers } = useCustomers(accessToken);
+  const { listProducts } = useCatalog(accessToken);
+  const {
+    listQuotes,
+    createQuote,
+    createQuoteVersion,
+    getQuoteById,
+    listQuoteShareLinks,
+    createQuoteShareLink,
+    revokeQuoteShareLink,
+    generateQuotePdf,
+    exportQuoteToJson
+  } = useQuotes(accessToken);
+  const [customers, setCustomers] = useState<CustomerResponse[]>([]);
+  const [products, setProducts] = useState<ProductResponse[]>([]);
+  const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [selectedQuoteDetail, setSelectedQuoteDetail] = useState<QuoteDetail | null>(
+    null
+  );
+  const [shareLinks, setShareLinks] = useState<ShareLinkResponse[]>([]);
+  const [exportedJson, setExportedJson] =
+    useState<ExportQuoteJsonResponse | null>(null);
+  const [pdfResult, setPdfResult] = useState<PdfResponse | null>(null);
+  const [createForm, setCreateForm] = useState<QuoteCreateFormValues>(
+    initialQuoteCreateFormValues
+  );
+  const [revisionForm, setRevisionForm] = useState<QuoteRevisionFormValues>(
+    initialQuoteRevisionFormValues
+  );
+  const [isLoadingBootstrap, setIsLoadingBootstrap] = useState(false);
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+  const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isRunningAction, setIsRunningAction] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [detailMessage, setDetailMessage] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const customerMap = useMemo(
+    () => new Map(customers.map((customer) => [customer.id, customer])),
+    [customers]
+  );
+  const currentVersionDetail = useMemo(() => {
+    if (!selectedQuoteDetail) {
+      return null;
+    }
+
+    return (
+      selectedQuoteDetail.versions.find(
+        (version) => version.id === selectedQuoteDetail.currentVersion.id
+      ) ?? null
+    );
+  }, [selectedQuoteDetail]);
+
+  const refreshQuotesWorkspace = useCallback(async () => {
+    setIsLoadingBootstrap(true);
+    setPageError(null);
+
+    try {
+      const [customersPayload, productsPayload, quotesPayload] = await Promise.all([
+        loadCustomers({
+          page: 1,
+          pageSize: 100
+        }),
+        listProducts(),
+        listQuotes()
+      ]);
+
+      setCustomers(customersPayload.items);
+      setProducts(productsPayload);
+      setQuotes(quotesPayload);
+      setCreateForm((currentValues) => ({
+        ...currentValues,
+        customerId:
+          currentValues.customerId ||
+          customersPayload.items[0]?.id ||
+          initialQuoteCreateFormValues.customerId,
+        productId:
+          currentValues.productId ||
+          productsPayload[0]?.id ||
+          initialQuoteCreateFormValues.productId
+      }));
+    } catch (bootstrapError: unknown) {
+      setPageError(
+        bootstrapError instanceof Error
+          ? bootstrapError.message
+          : "Falha ao carregar o workspace de orçamentos."
+      );
+    } finally {
+      setIsLoadingBootstrap(false);
+    }
+  }, [listProducts, listQuotes, loadCustomers]);
+
+  useEffect(() => {
+    const refreshQuotesWorkspaceTimeout = window.setTimeout(() => {
+      void refreshQuotesWorkspace();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(refreshQuotesWorkspaceTimeout);
+    };
+  }, [refreshQuotesWorkspace]);
+
+  const loadQuotePanel = useCallback(
+    async (quoteId: string) => {
+      setIsLoadingDetail(true);
+      setDetailError(null);
+
+      try {
+        const [quoteDetailPayload, shareLinksPayload] = await Promise.all([
+          getQuoteById(quoteId),
+          listQuoteShareLinks(quoteId)
+        ]);
+
+        setSelectedQuoteId(quoteId);
+        setSelectedQuoteDetail(quoteDetailPayload);
+        setShareLinks(shareLinksPayload);
+      } catch (quoteError: unknown) {
+        setDetailError(
+          quoteError instanceof Error
+            ? quoteError.message
+            : "Falha ao carregar detalhes do orçamento."
+        );
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    },
+    [getQuoteById, listQuoteShareLinks]
+  );
+
+  useEffect(() => {
+    if (!currentVersionDetail) {
+      const resetRevisionFormTimeout = window.setTimeout(() => {
+        setRevisionForm(initialQuoteRevisionFormValues);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(resetRevisionFormTimeout);
+      };
+
+      return;
+    }
+
+    const revisionFormTimeout = window.setTimeout(() => {
+      setRevisionForm({
+        label: `Revisão ${currentVersionDetail.versionNumber + 1}`,
+        items: currentVersionDetail.items.map((item) => ({
+          id: item.id,
+          productId: item.productId ?? "",
+          productName: item.productName,
+          productDescription: item.productDescription ?? "",
+          quantity: String(item.quantity),
+          unitPrice: (item.unitPriceCents / 100).toFixed(2).replace(".", ",")
+        }))
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(revisionFormTimeout);
+    };
+  }, [currentVersionDetail]);
+
+  function handleCreateFormFieldChange(
+    field: keyof QuoteCreateFormValues,
+    value: string
+  ): void {
+    setCreateForm((currentValues) => ({
+      ...currentValues,
+      [field]: value
+    }));
+  }
+
+  function handleResetQuoteForm(): void {
+    setCreateForm({
+      ...initialQuoteCreateFormValues,
+      customerId: customers[0]?.id ?? "",
+      productId: products[0]?.id ?? ""
+    });
+    setCreateMessage(null);
+  }
+
+  async function handleCreateQuote(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    setIsSubmittingQuote(true);
+    setCreateMessage(null);
+    setPageError(null);
+
+    try {
+      const quantity = Number(createForm.quantity);
+
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error("Informe uma quantidade inteira maior que zero.");
+      }
+
+      const payload: CreateQuoteRequest = {
+        customerId: createForm.customerId,
+        title: createForm.title.trim(),
+        ...(createForm.publicNotes.trim()
+          ? { publicNotes: createForm.publicNotes.trim() }
+          : {}),
+        ...(createForm.internalNotes.trim()
+          ? { internalNotes: createForm.internalNotes.trim() }
+          : {}),
+        items: [
+          {
+            productId: createForm.productId,
+            quantity
+          }
+        ]
+      };
+
+      const createdQuote = await createQuote(payload);
+
+      setCreateMessage("Orçamento criado com sucesso.");
+      await refreshQuotesWorkspace();
+      await loadQuotePanel(createdQuote.id);
+      handleResetQuoteForm();
+    } catch (creationError: unknown) {
+      setPageError(
+        creationError instanceof Error
+          ? creationError.message
+          : "Falha ao criar orçamento."
+      );
+    } finally {
+      setIsSubmittingQuote(false);
+    }
+  }
+
+  async function handleCreateShareLink(): Promise<void> {
+    if (!selectedQuoteId || !selectedQuoteDetail) {
+      return;
+    }
+
+    setIsRunningAction(true);
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      const shareLink = await createQuoteShareLink(selectedQuoteId, {
+        quoteVersionId: selectedQuoteDetail.currentVersion.id
+      });
+
+      setShareLinks((currentLinks) => [shareLink, ...currentLinks]);
+      setDetailMessage("Link de compartilhamento criado com sucesso.");
+    } catch (shareError: unknown) {
+      setDetailError(
+        shareError instanceof Error
+          ? shareError.message
+          : "Falha ao criar link de compartilhamento."
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  }
+
+  async function handleRevokeShareLink(shareLinkId: string): Promise<void> {
+    if (!selectedQuoteId) {
+      return;
+    }
+
+    setIsRunningAction(true);
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      const revokedShareLink = await revokeQuoteShareLink(
+        selectedQuoteId,
+        shareLinkId
+      );
+
+      setShareLinks((currentLinks) =>
+        currentLinks.map((currentLink) =>
+          currentLink.id === revokedShareLink.id ? revokedShareLink : currentLink
+        )
+      );
+      setDetailMessage("Link revogado com sucesso.");
+    } catch (revokeError: unknown) {
+      setDetailError(
+        revokeError instanceof Error
+          ? revokeError.message
+          : "Falha ao revogar link."
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  }
+
+  async function handleExportQuote(): Promise<void> {
+    if (!selectedQuoteId) {
+      return;
+    }
+
+    setIsRunningAction(true);
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      const exportedPayload = await exportQuoteToJson(selectedQuoteId);
+      setExportedJson(exportedPayload);
+      setDetailMessage("Exportação JSON gerada com sucesso.");
+    } catch (exportError: unknown) {
+      setDetailError(
+        exportError instanceof Error
+          ? exportError.message
+          : "Falha ao exportar orçamento em JSON."
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  }
+
+  async function handleGeneratePdf(): Promise<void> {
+    if (!selectedQuoteId || !selectedQuoteDetail) {
+      return;
+    }
+
+    setIsRunningAction(true);
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      const pdfPayload = await generateQuotePdf(selectedQuoteId, {
+        quoteVersionId: selectedQuoteDetail.currentVersion.id
+      });
+      setPdfResult(pdfPayload);
+      setDetailMessage("Documento comercial gerado com sucesso.");
+    } catch (pdfError: unknown) {
+      setDetailError(
+        pdfError instanceof Error ? pdfError.message : "Falha ao gerar PDF."
+      );
+    } finally {
+      setIsRunningAction(false);
+    }
+  }
+
+  function handleRevisionFieldChange(field: "label", value: string): void {
+    setRevisionForm((currentValues) => ({
+      ...currentValues,
+      [field]: value
+    }));
+  }
+
+  function handleRevisionItemFieldChange(
+    itemId: string,
+    field: "quantity" | "unitPrice",
+    value: string
+  ): void {
+    setRevisionForm((currentValues) => ({
+      ...currentValues,
+      items: currentValues.items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              [field]: value
+            }
+          : item
+      )
+    }));
+  }
+
+  async function handleCreateRevision(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+
+    if (!selectedQuoteId) {
+      return;
+    }
+
+    setIsSubmittingRevision(true);
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      const payload: CreateQuoteVersionRequest = {
+        ...(revisionForm.label.trim() ? { label: revisionForm.label.trim() } : {}),
+        items: revisionForm.items.map((item) => {
+          const quantity = Number(item.quantity);
+          const unitPriceCents = Math.round(
+            Number(item.unitPrice.replace(",", ".")) * 100
+          );
+
+          if (!Number.isInteger(quantity) || quantity <= 0) {
+            throw new Error("Cada item da revisão precisa ter quantidade válida.");
+          }
+
+          if (Number.isNaN(unitPriceCents) || unitPriceCents < 0) {
+            throw new Error(
+              "Cada item da revisão precisa ter preço unitário válido."
+            );
+          }
+
+          return item.productId
+            ? {
+                productId: item.productId,
+                quantity,
+                unitPriceCents
+              }
+            : {
+                productName: item.productName,
+                ...(item.productDescription
+                  ? { productDescription: item.productDescription }
+                  : {}),
+                quantity,
+                unitPriceCents
+              };
+        })
+      };
+
+      const createdVersion = await createQuoteVersion(selectedQuoteId, payload);
+
+      await refreshQuotesWorkspace();
+      await loadQuotePanel(selectedQuoteId);
+      setDetailMessage(
+        `Nova versão criada com sucesso: revisão ${createdVersion.versionNumber}.`
+      );
+    } catch (revisionError: unknown) {
+      setDetailError(
+        revisionError instanceof Error
+          ? revisionError.message
+          : "Falha ao criar nova revisão."
+      );
+    } finally {
+      setIsSubmittingRevision(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-5">
+      <header className="flex flex-col gap-5 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-3xl">
+          <span className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.32em] text-sky-200">
+            Orcamentos
+          </span>
+          <h1 className="mt-4 text-4xl leading-tight tracking-tight text-white">
+            Monte, acompanhe e distribua propostas comerciais
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">
+            Trabalhe com versões congeladas, exportação estável e distribuição
+            pública do tenant {tenant?.name}.
+          </p>
+        </div>
+
+        <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
+            Panorama
+          </p>
+          <p className="mt-3 text-sm leading-7 text-slate-300">
+            {quotes.length} orçamento(s), {customers.length} cliente(s) e{" "}
+            {products.length} produto(s) disponíveis para operação.
+          </p>
+        </div>
+      </header>
+
+      {pageError ? (
+        <section className="rounded-[1.75rem] border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">
+          {pageError}
+        </section>
+      ) : null}
+
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="grid gap-5">
+          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Novo orçamento
+                </p>
+                <h2 className="mt-3 text-2xl text-white">
+                  Criar orçamento com item de catálogo
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleResetQuoteForm}
+                className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                Limpar formulário
+              </button>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={handleCreateQuote}>
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Cliente</span>
+                <select
+                  value={createForm.customerId}
+                  onChange={(event) =>
+                    handleCreateFormFieldChange("customerId", event.target.value)
+                  }
+                  className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  required
+                >
+                  <option value="">Selecione um cliente</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Título</span>
+                <input
+                  type="text"
+                  value={createForm.title}
+                  onChange={(event) =>
+                    handleCreateFormFieldChange("title", event.target.value)
+                  }
+                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                  placeholder="Orçamento corporativo de notebooks"
+                  required
+                />
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-[1fr_140px]">
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Produto</span>
+                  <select
+                    value={createForm.productId}
+                    onChange={(event) =>
+                      handleCreateFormFieldChange("productId", event.target.value)
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                    required
+                  >
+                    <option value="">Selecione um produto</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Quantidade</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={createForm.quantity}
+                    onChange={(event) =>
+                      handleCreateFormFieldChange("quantity", event.target.value)
+                    }
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    required
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Notas públicas</span>
+                <textarea
+                  value={createForm.publicNotes}
+                  onChange={(event) =>
+                    handleCreateFormFieldChange("publicNotes", event.target.value)
+                  }
+                  className="min-h-24 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                  placeholder="Observações visíveis no documento compartilhado."
+                />
+              </label>
+
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Notas internas</span>
+                <textarea
+                  value={createForm.internalNotes}
+                  onChange={(event) =>
+                    handleCreateFormFieldChange("internalNotes", event.target.value)
+                  }
+                  className="min-h-24 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                  placeholder="Contexto interno para equipe comercial."
+                />
+              </label>
+
+              {createMessage ? (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                  {createMessage}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={
+                  isSubmittingQuote ||
+                  isLoadingBootstrap ||
+                  customers.length === 0 ||
+                  products.length === 0
+                }
+                className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmittingQuote ? "Criando..." : "Criar orçamento"}
+              </button>
+            </form>
+          </article>
+
+          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+              Lista de orçamentos
+            </p>
+            <div className="mt-6 grid gap-3">
+              {isLoadingBootstrap ? (
+                [0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-24 rounded-2xl border border-white/10 bg-white/5"
+                  />
+                ))
+              ) : quotes.length ? (
+                quotes.map((quote) => {
+                  const isSelected = quote.id === selectedQuoteId;
+                  const customer = customerMap.get(quote.customerId);
+
+                  return (
+                    <button
+                      key={quote.id}
+                      type="button"
+                      onClick={() => void loadQuotePanel(quote.id)}
+                      className={`rounded-2xl border px-4 py-4 text-left transition ${
+                        isSelected
+                          ? "border-sky-300/30 bg-sky-400/15"
+                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                          <p className="text-base font-medium text-white">
+                            {quote.title}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-300">
+                            {customer?.name ?? "Cliente não carregado"}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-400">
+                            Versão atual: {quote.currentVersion.versionNumber}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-semibold text-[var(--accent)]">
+                            {formatCurrency(
+                              quote.currentVersion.totalCents,
+                              quote.currentVersion.currency
+                            )}
+                          </p>
+                          <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">
+                            {formatStatus(quote.status)}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-300">
+                  Nenhum orçamento cadastrado ainda.
+                </div>
+              )}
+            </div>
+          </article>
+        </section>
+
+        <section className="grid gap-5">
+          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Painel do orçamento
+                </p>
+                <h2 className="mt-3 text-2xl text-white">
+                  {selectedQuoteDetail?.title ?? "Selecione um orçamento"}
+                </h2>
+              </div>
+
+              {selectedQuoteDetail ? (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void handleCreateShareLink()}
+                    disabled={isRunningAction}
+                    className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Criar share link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleExportQuote()}
+                    disabled={isRunningAction}
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Exportar JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleGeneratePdf()}
+                    disabled={isRunningAction}
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Gerar PDF
+                  </button>
+                  {pdfResult ? (
+                    <a
+                      href={`/quotes/${selectedQuoteId}/document?quoteVersionId=${selectedQuoteDetail.currentVersion.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Abrir documento
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            {isLoadingDetail ? (
+              <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-slate-200">
+                Carregando detalhes do orçamento selecionado...
+              </div>
+            ) : null}
+
+            {detailError ? (
+              <div className="mt-6 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {detailError}
+              </div>
+            ) : null}
+
+            {detailMessage ? (
+              <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                {detailMessage}
+              </div>
+            ) : null}
+
+            {!selectedQuoteDetail && !isLoadingDetail ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-white/5 p-6 text-sm text-slate-300">
+                Escolha um orçamento na lista para visualizar versões e executar
+                ações comerciais.
+              </div>
+            ) : null}
+
+            {selectedQuoteDetail ? (
+              <div className="mt-6 grid gap-5">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-400">Cliente</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {customerMap.get(selectedQuoteDetail.customerId)?.name ??
+                        "Cliente não carregado"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-400">Versão atual</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {selectedQuoteDetail.currentVersion.versionNumber}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-sm text-slate-400">Total atual</p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      {formatCurrency(
+                        selectedQuoteDetail.currentVersion.totalCents,
+                        selectedQuoteDetail.currentVersion.currency
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+                  <div className="grid gap-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        Versões
+                      </p>
+                      <div className="mt-4 grid gap-3">
+                        {selectedQuoteDetail.versions.map((version) => (
+                          <div
+                            key={version.id}
+                            className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-base font-medium text-white">
+                                  Versão {version.versionNumber}
+                                </p>
+                                <p className="mt-1 text-sm text-slate-300">
+                                  {version.label ?? "Sem label"} | {version.items.length} item(ns)
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-base font-semibold text-[var(--accent)]">
+                                  {formatCurrency(version.totalCents, version.currency)}
+                                </p>
+                                <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">
+                                  {formatDate(version.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        Nova revisão
+                      </p>
+                      <p className="mt-3 text-sm leading-7 text-slate-300">
+                        Ajuste quantidades e preços unitários para congelar uma nova
+                        versão do orçamento atual.
+                      </p>
+
+                      <form className="mt-5 grid gap-4" onSubmit={handleCreateRevision}>
+                        <label className="grid gap-2 text-sm text-slate-200">
+                          <span>Label da revisão</span>
+                          <input
+                            type="text"
+                            value={revisionForm.label}
+                            onChange={(event) =>
+                              handleRevisionFieldChange("label", event.target.value)
+                            }
+                            className="rounded-2xl border border-white/10 bg-[#0b1322] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                            placeholder="Revisão comercial"
+                          />
+                        </label>
+
+                        <div className="grid gap-3">
+                          {revisionForm.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
+                            >
+                              <p className="text-base font-medium text-white">
+                                {item.productName}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-400">
+                                {item.productDescription || "Sem descrição adicional."}
+                              </p>
+                              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                <label className="grid gap-2 text-sm text-slate-200">
+                                  <span>Quantidade</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={item.quantity}
+                                    onChange={(event) =>
+                                      handleRevisionItemFieldChange(
+                                        item.id,
+                                        "quantity",
+                                        event.target.value
+                                      )
+                                    }
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                                    required
+                                  />
+                                </label>
+                                <label className="grid gap-2 text-sm text-slate-200">
+                                  <span>Preço unitário</span>
+                                  <input
+                                    type="text"
+                                    value={item.unitPrice}
+                                    onChange={(event) =>
+                                      handleRevisionItemFieldChange(
+                                        item.id,
+                                        "unitPrice",
+                                        event.target.value
+                                      )
+                                    }
+                                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                                    placeholder="100,00"
+                                    required
+                                  />
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={isSubmittingRevision || revisionForm.items.length === 0}
+                          className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSubmittingRevision ? "Criando revisão..." : "Criar nova versão"}
+                        </button>
+                      </form>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        Export JSON
+                      </p>
+                      {exportedJson ? (
+                        <pre className="mt-4 overflow-x-auto rounded-2xl border border-white/10 bg-[#0b1322] p-4 text-xs leading-6 text-slate-200">
+{JSON.stringify(exportedJson, null, 2)}
+                        </pre>
+                      ) : (
+                        <p className="mt-4 text-sm leading-7 text-slate-300">
+                          Gere a exportação estável da versão atual para visualizar o payload.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-5">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        Share links
+                      </p>
+                      <div className="mt-4 grid gap-3">
+                        {shareLinks.length ? (
+                          shareLinks.map((shareLink) => (
+                            <div
+                              key={shareLink.id}
+                              className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
+                            >
+                              <p className="text-sm font-medium text-white">
+                                {shareLink.slug}
+                              </p>
+                              <a
+                                href={shareLink.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-2 block text-sm text-sky-300 underline-offset-4 hover:underline"
+                              >
+                                Abrir link público
+                              </a>
+                              <p className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">
+                                Status: {shareLink.status}
+                              </p>
+                              {shareLink.status === "active" ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleRevokeShareLink(shareLink.id)}
+                                  disabled={isRunningAction}
+                                  className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Revogar
+                                </button>
+                              ) : null}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm leading-7 text-slate-300">
+                            Ainda não existem links públicos para este orçamento.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        PDF
+                      </p>
+                      {pdfResult ? (
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-[#0b1322] p-4">
+                          <p className="text-sm text-slate-300">
+                            Documento pronto para a versão {pdfResult.quoteVersionId}.
+                          </p>
+                          <a
+                            href={`/quotes/${selectedQuoteId}/document?quoteVersionId=${selectedQuoteDetail.currentVersion.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 inline-flex text-sm text-sky-300 underline-offset-4 hover:underline"
+                          >
+                            Abrir pré-visualização autenticada
+                          </a>
+                          <p className="mt-3 text-xs uppercase tracking-[0.22em] text-slate-400">
+                            Endpoint bruto: {pdfResult.fileUrl}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-4 text-sm leading-7 text-slate-300">
+                          Gere o documento comercial HTML/PDF da versão corrente.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        </section>
+      </div>
+    </div>
+  );
+}

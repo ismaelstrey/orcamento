@@ -45,11 +45,27 @@ function getErrorMessage(data: ErrorEnvelope | unknown, fallback: string): strin
 }
 
 /**
+ * Monta os headers autenticados usados nas chamadas privadas de orçamentos.
+ */
+function getRequestHeaders(accessToken: string | null): HeadersInit {
+  if (!accessToken) {
+    throw new Error("Sessão autenticada obrigatória para operar orçamentos.");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`
+  };
+}
+
+/**
  * Centraliza as chamadas HTTP do módulo de orçamentos para uso no frontend.
  */
-export function useQuotes() {
+export function useQuotes(accessToken: string | null) {
   const listQuotes = useCallback(async (): Promise<QuoteSummary[]> => {
-    const response = await fetch("/api/v1/quotes");
+    const response = await fetch("/api/v1/quotes", {
+      headers: getRequestHeaders(accessToken)
+    });
     const data = await parseJson<QuoteSummary[]>(response);
 
     if (!response.ok) {
@@ -57,14 +73,12 @@ export function useQuotes() {
     }
 
     return data as QuoteSummary[];
-  }, []);
+  }, [accessToken]);
 
   const createQuote = useCallback(async (input: CreateQuoteRequest) => {
     const response = await fetch("/api/v1/quotes", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: getRequestHeaders(accessToken),
       body: JSON.stringify(input)
     });
 
@@ -75,10 +89,12 @@ export function useQuotes() {
     }
 
     return data as QuoteSummary;
-  }, []);
+  }, [accessToken]);
 
   const getQuoteById = useCallback(async (quoteId: string): Promise<QuoteDetail> => {
-    const response = await fetch(`/api/v1/quotes/${quoteId}`);
+    const response = await fetch(`/api/v1/quotes/${quoteId}`, {
+      headers: getRequestHeaders(accessToken)
+    });
     const data = await parseJson<QuoteDetail>(response);
 
     if (!response.ok) {
@@ -86,15 +102,13 @@ export function useQuotes() {
     }
 
     return data as QuoteDetail;
-  }, []);
+  }, [accessToken]);
 
   const updateQuote = useCallback(
     async (quoteId: string, input: UpdateQuoteRequest): Promise<QuoteDetail> => {
       const response = await fetch(`/api/v1/quotes/${quoteId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -106,12 +120,14 @@ export function useQuotes() {
 
       return data as QuoteDetail;
     },
-    []
+    [accessToken]
   );
 
   const listQuoteVersions = useCallback(
     async (quoteId: string): Promise<QuoteVersionResponse[]> => {
-      const response = await fetch(`/api/v1/quotes/${quoteId}/versions`);
+      const response = await fetch(`/api/v1/quotes/${quoteId}/versions`, {
+        headers: getRequestHeaders(accessToken)
+      });
       const data = await parseJson<QuoteVersionResponse[]>(response);
 
       if (!response.ok) {
@@ -122,7 +138,7 @@ export function useQuotes() {
 
       return data as QuoteVersionResponse[];
     },
-    []
+    [accessToken]
   );
 
   const getQuoteVersionById = useCallback(
@@ -131,7 +147,10 @@ export function useQuotes() {
       versionId: string
     ): Promise<QuoteVersionResponse> => {
       const response = await fetch(
-        `/api/v1/quotes/${quoteId}/versions/${versionId}`
+        `/api/v1/quotes/${quoteId}/versions/${versionId}`,
+        {
+          headers: getRequestHeaders(accessToken)
+        }
       );
       const data = await parseJson<QuoteVersionResponse>(response);
 
@@ -141,7 +160,7 @@ export function useQuotes() {
 
       return data as QuoteVersionResponse;
     },
-    []
+    [accessToken]
   );
 
   const createQuoteVersion = useCallback(
@@ -151,9 +170,7 @@ export function useQuotes() {
     ): Promise<QuoteVersionResponse> => {
       const response = await fetch(`/api/v1/quotes/${quoteId}/versions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -167,12 +184,14 @@ export function useQuotes() {
 
       return data as QuoteVersionResponse;
     },
-    []
+    [accessToken]
   );
 
   const listQuoteShareLinks = useCallback(
     async (quoteId: string): Promise<ShareLinkResponse[]> => {
-      const response = await fetch(`/api/v1/quotes/${quoteId}/share-links`);
+      const response = await fetch(`/api/v1/quotes/${quoteId}/share-links`, {
+        headers: getRequestHeaders(accessToken)
+      });
       const data = await parseJson<ShareLinkResponse[]>(response);
 
       if (!response.ok) {
@@ -183,7 +202,7 @@ export function useQuotes() {
 
       return data as ShareLinkResponse[];
     },
-    []
+    [accessToken]
   );
 
   const createQuoteShareLink = useCallback(
@@ -193,9 +212,7 @@ export function useQuotes() {
     ): Promise<ShareLinkResponse> => {
       const response = await fetch(`/api/v1/quotes/${quoteId}/share-links`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -209,7 +226,7 @@ export function useQuotes() {
 
       return data as ShareLinkResponse;
     },
-    []
+    [accessToken]
   );
 
   const revokeQuoteShareLink = useCallback(
@@ -217,7 +234,8 @@ export function useQuotes() {
       const response = await fetch(
         `/api/v1/quotes/${quoteId}/share-links/${shareLinkId}/revoke`,
         {
-          method: "POST"
+          method: "POST",
+          headers: getRequestHeaders(accessToken)
         }
       );
       const data = await parseJson<ShareLinkResponse>(response);
@@ -230,7 +248,7 @@ export function useQuotes() {
 
       return data as ShareLinkResponse;
     },
-    []
+    [accessToken]
   );
 
   const getPublicQuoteBySlug = useCallback(
@@ -253,9 +271,7 @@ export function useQuotes() {
     async (quoteId: string, input: GeneratePdfRequest = {}): Promise<PdfResponse> => {
       const response = await fetch(`/api/v1/quotes/${quoteId}/pdf`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
       const data = await parseJson<PdfResponse>(response);
@@ -266,16 +282,14 @@ export function useQuotes() {
 
       return data as PdfResponse;
     },
-    []
+    [accessToken]
   );
 
   const importQuoteFromJson = useCallback(
     async (input: ImportQuoteJsonRequest): Promise<ImportQuoteJsonResponse> => {
       const response = await fetch("/api/v1/quotes/import-json", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
       const data = await parseJson<ImportQuoteJsonResponse>(response);
@@ -286,16 +300,14 @@ export function useQuotes() {
 
       return data as ImportQuoteJsonResponse;
     },
-    []
+    [accessToken]
   );
 
   const exportQuoteToJson = useCallback(
     async (quoteId: string): Promise<ExportQuoteJsonResponse> => {
       const response = await fetch(`/api/v1/quotes/${quoteId}/export-json`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json"
-        }
+        headers: getRequestHeaders(accessToken)
       });
       const data = await parseJson<ExportQuoteJsonResponse>(response);
 
@@ -305,7 +317,7 @@ export function useQuotes() {
 
       return data as ExportQuoteJsonResponse;
     },
-    []
+    [accessToken]
   );
 
   return {

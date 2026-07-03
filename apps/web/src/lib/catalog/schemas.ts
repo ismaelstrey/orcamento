@@ -67,4 +67,6 @@ export type CreateCategoryRequest = z.infer<typeof createCategoryRequestSchema>;
 export type CreateBrandRequest = z.infer<typeof createBrandRequestSchema>;
 export type CreateProductRequest = z.infer<typeof createProductRequestSchema>;
 export type UpdateProductRequest = z.infer<typeof updateProductRequestSchema>;
+export type CategoryResponse = z.infer<typeof categoryResponseSchema>;
+export type BrandResponse = z.infer<typeof brandResponseSchema>;
 export type ProductResponse = z.infer<typeof productResponseSchema>;

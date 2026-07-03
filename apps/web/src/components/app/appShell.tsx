@@ -15,6 +15,16 @@ const navigationItems = [
     href: "/customers",
     label: "Clientes",
     description: "Base de relacionamento comercial."
+  },
+  {
+    href: "/catalog",
+    label: "Catalogo",
+    description: "Categorias, marcas e produtos do tenant."
+  },
+  {
+    href: "/quotes",
+    label: "Orcamentos",
+    description: "Criacao, historico e distribuicao comercial."
   }
 ];
 

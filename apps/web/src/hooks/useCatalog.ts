@@ -2,6 +2,8 @@
 
 import { useCallback } from "react";
 import type {
+  BrandResponse,
+  CategoryResponse,
   CreateBrandRequest,
   CreateCategoryRequest,
   CreateProductRequest,
@@ -35,107 +37,83 @@ function getErrorMessage(data: ErrorEnvelope | unknown, fallback: string): strin
   return fallback;
 }
 
-export function useCatalog() {
+/**
+ * Monta os headers autenticados usados nas chamadas do módulo de catálogo.
+ */
+function getRequestHeaders(accessToken: string | null): HeadersInit {
+  if (!accessToken) {
+    throw new Error("Sessão autenticada obrigatória para operar o catálogo.");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`
+  };
+}
+
+export function useCatalog(accessToken: string | null) {
   const listCategories = useCallback(async () => {
-    const response = await fetch("/api/v1/categories");
-    const data = await parseJson<
-      Array<{
-        id: string;
-        name: string;
-        slug: string;
-        createdAt: string;
-        updatedAt: string;
-      }>
-    >(response);
+    const response = await fetch("/api/v1/categories", {
+      headers: getRequestHeaders(accessToken)
+    });
+    const data = await parseJson<CategoryResponse[]>(response);
 
     if (!response.ok) {
       throw new Error(getErrorMessage(data, "Falha ao carregar categorias."));
     }
 
-    return data as Array<{
-      id: string;
-      name: string;
-      slug: string;
-      createdAt: string;
-      updatedAt: string;
-    }>;
-  }, []);
+    return data as CategoryResponse[];
+  }, [accessToken]);
 
   const createCategory = useCallback(async (input: CreateCategoryRequest) => {
     const response = await fetch("/api/v1/categories", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: getRequestHeaders(accessToken),
       body: JSON.stringify(input)
     });
 
-    const data = await parseJson(response);
+    const data = await parseJson<CategoryResponse>(response);
 
     if (!response.ok) {
       throw new Error(getErrorMessage(data, "Falha ao criar categoria."));
     }
 
-    return data as {
-      id: string;
-      name: string;
-      slug: string;
-      createdAt: string;
-      updatedAt: string;
-    };
-  }, []);
+    return data as CategoryResponse;
+  }, [accessToken]);
 
   const listBrands = useCallback(async () => {
-    const response = await fetch("/api/v1/brands");
-    const data = await parseJson<
-      Array<{
-        id: string;
-        name: string;
-        slug: string;
-        createdAt: string;
-        updatedAt: string;
-      }>
-    >(response);
+    const response = await fetch("/api/v1/brands", {
+      headers: getRequestHeaders(accessToken)
+    });
+    const data = await parseJson<BrandResponse[]>(response);
 
     if (!response.ok) {
       throw new Error(getErrorMessage(data, "Falha ao carregar marcas."));
     }
 
-    return data as Array<{
-      id: string;
-      name: string;
-      slug: string;
-      createdAt: string;
-      updatedAt: string;
-    }>;
-  }, []);
+    return data as BrandResponse[];
+  }, [accessToken]);
 
   const createBrand = useCallback(async (input: CreateBrandRequest) => {
     const response = await fetch("/api/v1/brands", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: getRequestHeaders(accessToken),
       body: JSON.stringify(input)
     });
 
-    const data = await parseJson(response);
+    const data = await parseJson<BrandResponse>(response);
 
     if (!response.ok) {
       throw new Error(getErrorMessage(data, "Falha ao criar marca."));
     }
 
-    return data as {
-      id: string;
-      name: string;
-      slug: string;
-      createdAt: string;
-      updatedAt: string;
-    };
-  }, []);
+    return data as BrandResponse;
+  }, [accessToken]);
 
   const listProducts = useCallback(async (): Promise<ProductResponse[]> => {
-    const response = await fetch("/api/v1/products");
+    const response = await fetch("/api/v1/products", {
+      headers: getRequestHeaders(accessToken)
+    });
     const data = await parseJson<ProductResponse[]>(response);
 
     if (!response.ok) {
@@ -143,29 +121,29 @@ export function useCatalog() {
     }
 
     return data as ProductResponse[];
-  }, []);
+  }, [accessToken]);
 
   const createProduct = useCallback(async (input: CreateProductRequest) => {
     const response = await fetch("/api/v1/products", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: getRequestHeaders(accessToken),
       body: JSON.stringify(input)
     });
 
     const data = await parseJson<ProductResponse>(response);
 
     if (!response.ok) {
-        throw new Error(getErrorMessage(data, "Falha ao criar produto."));
+      throw new Error(getErrorMessage(data, "Falha ao criar produto."));
     }
 
-      return data as ProductResponse;
-  }, []);
+    return data as ProductResponse;
+  }, [accessToken]);
 
 
   const getProductById = useCallback(async (productId: string) => {
-    const response = await fetch(`/api/v1/products/${productId}`);
+    const response = await fetch(`/api/v1/products/${productId}`, {
+      headers: getRequestHeaders(accessToken)
+    });
     const data = await parseJson<ProductResponse>(response);
 
     if (!response.ok) {
@@ -173,15 +151,13 @@ export function useCatalog() {
     }
 
     return data as ProductResponse;
-  }, []);
+  }, [accessToken]);
 
   const updateProduct = useCallback(
     async (productId: string, input: UpdateProductRequest) => {
       const response = await fetch(`/api/v1/products/${productId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -193,7 +169,7 @@ export function useCatalog() {
 
       return data as ProductResponse;
     },
-    []
+    [accessToken]
   );
 
   return {

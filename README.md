@@ -14,7 +14,7 @@ Neste momento, a base validada inclui:
 - orçamentos com versionamento, compartilhamento público e exportação/importação JSON;
 - geração de PDF por `quoteVersion`;
 - dashboard inicial, auditoria mínima e testes críticos;
-- frontend com login separado, área autenticada e primeira tela CRUD operacional de clientes;
+- frontend com login separado, área autenticada e telas operacionais de clientes, catálogo e orçamentos;
 - migration inicial aplicada em banco real e seed bootstrap validado.
 
 ## Fontes de origem
@@ -156,6 +156,9 @@ Fluxos de interface já entregues no app `web`:
 - `/login` para autenticação do usuário bootstrap e restauração de sessão no navegador;
 - `/dashboard` para a visão operacional autenticada do tenant;
 - `/customers` para listagem, busca, cadastro e edição de clientes;
+- `/catalog` para cadastro e edição operacional de categorias, marcas e produtos;
+- `/quotes` para criação, seleção, revisão/versionamento, compartilhamento, exportação JSON e geração de documento comercial;
+- `/public/quotes/[slug]` para visualização pública do orçamento compartilhado;
 - `/` redirecionando automaticamente para `/dashboard`.
 
 ## Próximo passo recomendado
@@ -163,5 +166,6 @@ Fluxos de interface já entregues no app `web`:
 Com a base operacional validada, o próximo passo mais útil é:
 
 - expandir a área autenticada para catálogo e orçamentos usando a mesma base de navegação;
-- adaptar `useCatalog` e `useQuotes` para consumo autenticado na UI;
+- expandir o frontend de orçamentos para revisões, importação JSON e gestão mais completa de versões;
+- refinar a navegação com páginas dedicadas de detalhe quando o fluxo comercial crescer;
 - validar os próximos CRUDs no navegador e consolidar a navegação do MVP.
