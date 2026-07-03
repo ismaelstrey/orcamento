@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Libre_Baskerville } from "next/font/google";
+import { AuthProvider } from "@/components/auth/authProvider";
 import "./globals.css";
 
 const displayFont = Libre_Baskerville({
@@ -29,7 +30,9 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${displayFont.variable} ${monoFont.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

@@ -40,9 +40,23 @@ function getErrorMessage(data: ErrorEnvelope | unknown, fallback: string): strin
 }
 
 /**
+ * Monta os headers autenticados usados nas chamadas do módulo de clientes.
+ */
+function getRequestHeaders(accessToken: string | null): HeadersInit {
+  if (!accessToken) {
+    throw new Error("Sessão autenticada obrigatória para operar clientes.");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`
+  };
+}
+
+/**
  * Centraliza o acesso HTTP ao módulo de clientes para manter o componente limpo.
  */
-export function useCustomers() {
+export function useCustomers(accessToken: string | null) {
   const [state, setState] = useState<UseCustomersState>({
     items: [],
     page: 1,
@@ -81,9 +95,7 @@ export function useCustomers() {
 
         const response = await fetch(`/api/v1/customers?${searchParams.toString()}`, {
           method: "GET",
-          headers: {
-            "Content-Type": "application/json"
-          }
+          headers: getRequestHeaders(accessToken)
         });
 
         const data = (await response.json()) as CustomersListResponse | ErrorEnvelope;
@@ -117,16 +129,14 @@ export function useCustomers() {
         throw error;
       }
     },
-    [setLoading]
+    [accessToken, setLoading]
   );
 
   const createCustomer = useCallback(
     async (input: CreateCustomerRequest): Promise<CustomerResponse> => {
       const response = await fetch("/api/v1/customers", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -138,15 +148,13 @@ export function useCustomers() {
 
       return data as CustomerResponse;
     },
-    []
+    [accessToken]
   );
 
   const getCustomerById = useCallback(async (customerId: string) => {
     const response = await fetch(`/api/v1/customers/${customerId}`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json"
-      }
+      headers: getRequestHeaders(accessToken)
     });
 
     const data = (await response.json()) as CustomerResponse | ErrorEnvelope;
@@ -156,7 +164,7 @@ export function useCustomers() {
     }
 
     return data as CustomerResponse;
-  }, []);
+  }, [accessToken]);
 
   const updateCustomer = useCallback(
     async (
@@ -165,9 +173,7 @@ export function useCustomers() {
     ): Promise<CustomerResponse> => {
       const response = await fetch(`/api/v1/customers/${customerId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: getRequestHeaders(accessToken),
         body: JSON.stringify(input)
       });
 
@@ -179,7 +185,7 @@ export function useCustomers() {
 
       return data as CustomerResponse;
     },
-    []
+    [accessToken]
   );
 
   return {

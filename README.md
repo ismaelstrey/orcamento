@@ -14,6 +14,7 @@ Neste momento, a base validada inclui:
 - orçamentos com versionamento, compartilhamento público e exportação/importação JSON;
 - geração de PDF por `quoteVersion`;
 - dashboard inicial, auditoria mínima e testes críticos;
+- frontend com login separado, área autenticada e primeira tela CRUD operacional de clientes;
 - migration inicial aplicada em banco real e seed bootstrap validado.
 
 ## Fontes de origem
@@ -148,10 +149,19 @@ Valores padrão do bootstrap:
 - O ambiente Windows exigiu `pnpm` com `--store-dir .pnpm-store` e `--config.package-import-method=copy`.
 - Para evitar inconsistências de linking no workspace, a reinstalação mais estável foi com `--node-linker=hoisted`.
 
+## Rotas de UI disponíveis
+
+Fluxos de interface já entregues no app `web`:
+
+- `/login` para autenticação do usuário bootstrap e restauração de sessão no navegador;
+- `/dashboard` para a visão operacional autenticada do tenant;
+- `/customers` para listagem, busca, cadastro e edição de clientes;
+- `/` redirecionando automaticamente para `/dashboard`.
+
 ## Próximo passo recomendado
 
 Com a base operacional validada, o próximo passo mais útil é:
 
-- substituir secrets JWT placeholder por valores definitivos no `.env`, se ainda houver placeholders;
-- validar login real com o usuário owner bootstrap;
-- subir a aplicação e testar o fluxo ponta a ponta de autenticação, catálogo e criação de orçamento.
+- expandir a área autenticada para catálogo e orçamentos usando a mesma base de navegação;
+- adaptar `useCatalog` e `useQuotes` para consumo autenticado na UI;
+- validar os próximos CRUDs no navegador e consolidar a navegação do MVP.
