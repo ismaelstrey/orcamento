@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
+import { ThemeToggle } from "@/components/theme/themeToggle";
+import { Button } from "@/components/ui/button";
+import { FeedbackBanner } from "@/components/ui/feedbackBanner";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/ui/surface";
 
 const nextActions = [
   "Acompanhar indicadores do dashboard",
@@ -47,80 +53,121 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-6 py-10 md:px-8 md:py-12">
-      <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(125,211,252,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(125,211,252,0.08)_1px,transparent_1px)] [background-size:72px_72px]" />
+    <main className="app-grid relative min-h-screen overflow-hidden px-4 py-4 md:px-6 md:py-6">
+      <section className="relative z-10 mx-auto grid min-h-[calc(100vh-2rem)] w-full max-w-[1600px] gap-4 xl:grid-cols-[minmax(0,1.2fr)_420px]">
+        <Surface as="section" variant="hero" className="flex flex-col justify-between p-6 md:p-8 xl:p-10">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <span className="inline-flex rounded-full border border-[var(--border-strong)] bg-[var(--surface-secondary)] px-3 py-1 font-mono text-xs uppercase tracking-[0.32em] text-[var(--accent-strong)]">
+                Acesso autenticado
+              </span>
+              <h1 className="mt-5 max-w-4xl text-4xl leading-tight font-semibold tracking-tight text-[var(--foreground-strong)] md:text-5xl xl:text-6xl">
+                Entre no Intelligent Quote Platform
+              </h1>
+              <p className="mt-5 max-w-2xl text-sm leading-8 text-[var(--muted)] md:text-base">
+                Use sua conta para abrir o dashboard, operar clientes, montar o
+                catálogo e publicar orçamentos com uma interface adaptada para
+                qualquer tamanho de tela.
+              </p>
+            </div>
 
-      <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-5 rounded-[2rem] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[0_40px_120px_rgba(2,6,23,0.55)] backdrop-blur xl:grid-cols-[1.15fr_0.85fr] md:p-8">
-        <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-          <span className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.32em] text-sky-200">
-            Acesso autenticado
-          </span>
-          <h1 className="mt-5 text-4xl leading-tight tracking-tight text-white md:text-5xl">
-            Entre no Intelligent Quote Platform
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)] md:text-base">
-            Use sua conta para abrir o dashboard, operar clientes e avançar
-            para os próximos módulos do fluxo comercial.
-          </p>
+            <ThemeToggle />
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {nextActions.map((action, index) => (
+              <Surface
+                key={action}
+                as="article"
+                variant="subtle"
+                hoverable
+                className="h-full p-5"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[var(--accent-strong)]/80">
+                  Passo {index + 1}
+                </p>
+                <p className="mt-3 text-sm leading-7 text-[var(--foreground)]">
+                  {action}
+                </p>
+              </Surface>
+            ))}
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <Surface as="article" variant="subtle" className="p-5">
+              <p className="text-sm text-[var(--muted)]">Experiência visual</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                Layout adaptativo
+              </p>
+            </Surface>
+            <Surface as="article" variant="subtle" className="p-5">
+              <p className="text-sm text-[var(--muted)]">Ambiente operacional</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                Sessão com tenant
+              </p>
+            </Surface>
+            <Surface as="article" variant="subtle" className="p-5">
+              <p className="text-sm text-[var(--muted)]">Tema</p>
+              <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                Claro e escuro
+              </p>
+            </Surface>
+          </div>
+        </Surface>
+
+        <Surface as="section" variant="elevated" className="flex flex-col justify-center p-6 md:p-8">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+              Sessão do navegador
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold text-[var(--foreground-strong)]">
+              Acesse o painel
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+              Informe suas credenciais para abrir a área autenticada e manter o
+              contexto operacional do tenant.
+            </p>
+          </div>
 
           <form className="mt-8 grid gap-4" onSubmit={handleLoginSubmit}>
-            <label className="grid gap-2 text-sm text-slate-200">
-              <span>E-mail</span>
-              <input
+            <Field label="E-mail" htmlFor="login-email">
+              <Input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="owner@bootstrap.local"
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                 autoComplete="email"
                 required
               />
-            </label>
+            </Field>
 
-            <label className="grid gap-2 text-sm text-slate-200">
-              <span>Senha</span>
-              <input
+            <Field label="Senha" htmlFor="login-password">
+              <Input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Sua senha de acesso"
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                 autoComplete="current-password"
                 required
               />
-            </label>
+            </Field>
 
             {error ? (
-              <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                {error}
-              </div>
+              <FeedbackBanner description={error} title="Falha ao autenticar" variant="error" />
             ) : null}
 
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting || isBootstrapping}
-              className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              size="lg"
+              fullWidth
             >
               {isSubmitting ? "Entrando..." : "Entrar no painel"}
-            </button>
+            </Button>
           </form>
-        </article>
-
-        <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/40 p-6">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
-            Escopo atual do MVP
-          </p>
-          <ul className="mt-5 space-y-3">
-            {nextActions.map((action) => (
-              <li
-                key={action}
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-100"
-              >
-                {action}
-              </li>
-            ))}
-          </ul>
-        </article>
+        </Surface>
       </section>
     </main>
   );

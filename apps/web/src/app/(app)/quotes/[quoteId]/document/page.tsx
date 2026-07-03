@@ -1,7 +1,10 @@
 "use client";
 
-import { useAuthContext } from "@/components/auth/authProvider";
 import { useEffect, useState } from "react";
+import { useAuthContext } from "@/components/auth/authProvider";
+import { FeedbackBanner } from "@/components/ui/feedbackBanner";
+import { PageHeader } from "@/components/ui/pageHeader";
+import { Surface } from "@/components/ui/surface";
 
 interface QuoteDocumentPageProps {
   params: Promise<{
@@ -17,15 +20,9 @@ export default function QuoteDocumentPage({ params }: QuoteDocumentPageProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const resolveParamsTimeout = window.setTimeout(() => {
-      void params.then((resolvedParams) => {
-        setQuoteId(resolvedParams.quoteId);
-      });
-    }, 0);
-
-    return () => {
-      window.clearTimeout(resolveParamsTimeout);
-    };
+    void params.then((resolvedParams) => {
+      setQuoteId(resolvedParams.quoteId);
+    });
   }, [params]);
 
   useEffect(() => {
@@ -36,86 +33,77 @@ export default function QuoteDocumentPage({ params }: QuoteDocumentPageProps) {
     const currentLocation = new URL(window.location.href);
     const quoteVersionId = currentLocation.searchParams.get("quoteVersionId");
 
-    const loadDocumentTimeout = window.setTimeout(() => {
-      void (async () => {
-        setIsLoading(true);
-        setError(null);
+    void (async () => {
+      setIsLoading(true);
+      setError(null);
 
-        try {
-          const endpoint = quoteVersionId
-            ? `/api/v1/quotes/${quoteId}/pdf?quoteVersionId=${quoteVersionId}`
-            : `/api/v1/quotes/${quoteId}/pdf`;
-          const response = await fetch(endpoint, {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`
-            }
-          });
-          const responseHtml = await response.text();
-
-          if (!response.ok) {
-            throw new Error("Falha ao carregar o documento comercial.");
+      try {
+        const endpoint = quoteVersionId
+          ? `/api/v1/quotes/${quoteId}/pdf?quoteVersionId=${quoteVersionId}`
+          : `/api/v1/quotes/${quoteId}/pdf`;
+        const response = await fetch(endpoint, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
           }
+        });
+        const responseHtml = await response.text();
 
-          /**
-           * Extrai o conteúdo visível do HTML comercial para renderizar no shell autenticado.
-           */
-          const parser = new window.DOMParser();
-          const documentHtml = parser.parseFromString(responseHtml, "text/html");
-          const styles = Array.from(documentHtml.head.querySelectorAll("style"))
-            .map((styleElement) => styleElement.outerHTML)
-            .join("");
-          const bodyContent = documentHtml.body.innerHTML;
-
-          setHtmlPreview(`${styles}${bodyContent}`);
-        } catch (documentError: unknown) {
-          setError(
-            documentError instanceof Error
-              ? documentError.message
-              : "Falha ao carregar o documento comercial."
-          );
-        } finally {
-          setIsLoading(false);
+        if (!response.ok) {
+          throw new Error("Falha ao carregar o documento comercial.");
         }
-      })();
-    }, 0);
 
-    return () => {
-      window.clearTimeout(loadDocumentTimeout);
-    };
+        /**
+         * Extrai o conteúdo visível do HTML comercial para renderizar no shell autenticado.
+         */
+        const parser = new window.DOMParser();
+        const documentHtml = parser.parseFromString(responseHtml, "text/html");
+        const styles = Array.from(documentHtml.head.querySelectorAll("style"))
+          .map((styleElement) => styleElement.outerHTML)
+          .join("");
+        const bodyContent = documentHtml.body.innerHTML;
+
+        setHtmlPreview(`${styles}${bodyContent}`);
+      } catch (documentError: unknown) {
+        setError(
+          documentError instanceof Error
+            ? documentError.message
+            : "Falha ao carregar o documento comercial."
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, [accessToken, quoteId]);
 
   return (
-    <main className="min-h-screen bg-[#07111f] px-4 py-4 md:px-6 md:py-6">
-      <section className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-7xl flex-col gap-4 rounded-[2rem] border border-white/10 bg-[rgba(9,16,29,0.82)] p-4 shadow-[0_30px_90px_rgba(2,6,23,0.45)] md:p-6">
-        <header className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
-            Documento comercial
-          </p>
-          <h1 className="mt-3 text-2xl text-white">
-            Pré-visualização autenticada do orçamento
-          </h1>
-        </header>
+    <main className="app-grid min-h-screen px-4 py-4 md:px-6 md:py-6">
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-[1700px] flex-col gap-4">
+        <PageHeader
+          eyebrow="Documento comercial"
+          title="Pré-visualização autenticada do orçamento"
+          description="Visualize o documento comercial no contexto autenticado, ocupando melhor a área útil disponível sem perder a legibilidade."
+        />
 
         {isLoading ? (
-          <div className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 text-sm text-slate-300">
-            Carregando documento comercial...
-          </div>
+          <FeedbackBanner description="Carregando documento comercial..." title="Sincronizando documento" />
         ) : null}
 
         {error ? (
-          <div className="rounded-[1.5rem] border border-rose-400/20 bg-rose-500/10 p-5 text-sm text-rose-100">
-            {error}
-          </div>
+          <FeedbackBanner description={error} title="Falha ao carregar" variant="error" />
         ) : null}
 
         {htmlPreview ? (
-          <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white">
+          <Surface
+            as="section"
+            variant="elevated"
+            className="overflow-hidden p-3 md:p-4"
+          >
             <div
-              className="min-h-[75vh] overflow-auto bg-white"
+              className="content-scroll min-h-[75vh] overflow-auto rounded-[1.25rem] bg-white"
               dangerouslySetInnerHTML={{ __html: htmlPreview }}
             />
-          </div>
+          </Surface>
         ) : null}
       </section>
     </main>

@@ -2,6 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/emptyState";
+import { FeedbackBanner } from "@/components/ui/feedbackBanner";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/pageHeader";
+import { Surface } from "@/components/ui/surface";
+import { Textarea } from "@/components/ui/textarea";
 import { useCustomers } from "@/hooks/useCustomers";
 import type {
   CreateCustomerRequest,
@@ -197,73 +205,66 @@ export default function CustomersPage() {
 
   return (
     <div className="grid gap-5">
-      <header className="flex flex-col gap-5 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-3xl">
-          <span className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.32em] text-sky-200">
-            Clientes
-          </span>
-          <h1 className="mt-4 text-4xl leading-tight tracking-tight text-white">
-            Base de relacionamento do tenant
-          </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--muted)]">
-            Cadastre, pesquise e atualize clientes do tenant {tenant?.name} sem
-            sair da área autenticada.
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Clientes"
+        title="Base de relacionamento do tenant"
+        description={`Cadastre, pesquise e atualize clientes do tenant ${tenant?.name} sem sair da área autenticada, aproveitando melhor a área útil da tela.`}
+        summary={
+          <Surface as="div" variant="subtle" className="h-full p-5">
+            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--accent-strong)]/70">
+              Capacidade atual
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[var(--foreground-strong)]">
+              {total}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+              cliente(s) identificado(s) na consulta corrente.
+            </p>
+          </Surface>
+        }
+      />
 
-        <div className="rounded-[1.5rem] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
-          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-sky-200/70">
-            Capacidade atual
-          </p>
-          <p className="mt-3 text-3xl font-semibold text-white">{total}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-300">
-            cliente(s) identificado(s) na consulta corrente.
-          </p>
-        </div>
-      </header>
-
-      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.18fr)_430px]">
         <section className="grid gap-5">
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <Surface as="article" variant="default" className="p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
                   Consulta
                 </p>
-                <h2 className="mt-3 text-2xl text-white">
+                <h2 className="mt-3 text-2xl font-semibold text-[var(--foreground-strong)]">
                   Encontre e selecione clientes
                 </h2>
               </div>
 
-              <button
-                type="button"
-                onClick={handleResetForm}
-                className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-              >
+              <Button variant="secondary" onClick={handleResetForm}>
                 Novo cliente
-              </button>
+              </Button>
             </div>
 
-            <form className="mt-6 flex flex-col gap-3 md:flex-row" onSubmit={handleSearchSubmit}>
-              <input
+            <form
+              className="mt-6 flex flex-col gap-3 md:flex-row"
+              onSubmit={handleSearchSubmit}
+            >
+              <Input
                 type="search"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Buscar por nome, e-mail ou documento"
-                className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                className="flex-1"
               />
-              <button
-                type="submit"
-                className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20"
-              >
+              <Button type="submit" size="lg">
                 Aplicar busca
-              </button>
+              </Button>
             </form>
 
             {error ? (
-              <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                {error}
-              </div>
+              <FeedbackBanner
+                className="mt-5"
+                description={error}
+                title="Falha ao carregar"
+                variant="error"
+              />
             ) : null}
 
             <div className="mt-6 grid gap-3">
@@ -271,7 +272,7 @@ export default function CustomersPage() {
                 [0, 1, 2].map((item) => (
                   <div
                     key={item}
-                    className="h-24 rounded-2xl border border-white/10 bg-white/5"
+                    className="h-24 rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface-secondary)]"
                   />
                 ))
               ) : items.length ? (
@@ -283,25 +284,25 @@ export default function CustomersPage() {
                       key={customer.id}
                       type="button"
                       onClick={() => void handleSelectCustomer(customer.id)}
-                      className={`rounded-2xl border px-4 py-4 text-left transition ${
+                      className={`rounded-[1.5rem] border px-4 py-4 text-left transition ${
                         isSelected
-                          ? "border-sky-300/30 bg-sky-400/15"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                          ? "border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(56,189,248,0.2),rgba(99,102,241,0.14))]"
+                          : "border-[var(--border)] bg-[var(--surface-secondary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]"
                       }`}
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                         <div>
-                          <p className="text-base font-medium text-white">
+                          <p className="text-base font-medium text-[var(--foreground-strong)]">
                             {customer.name}
                           </p>
-                          <p className="mt-1 text-sm text-slate-300">
+                          <p className="mt-1 text-sm text-[var(--foreground)]">
                             {customer.email ?? "Sem e-mail informado"}
                           </p>
-                          <p className="mt-1 text-sm text-slate-400">
+                          <p className="mt-1 text-sm text-[var(--muted)]">
                             Documento: {customer.document ?? "Nao informado"}
                           </p>
                         </div>
-                        <div className="text-sm text-slate-400">
+                        <div className="text-sm text-[var(--muted)]">
                           Atualizado em {formatDate(customer.updatedAt)}
                         </div>
                       </div>
@@ -309,161 +310,153 @@ export default function CustomersPage() {
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-6">
-                  <p className="text-base text-white">
-                    Nenhum cliente encontrado para os filtros atuais.
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-                    Ajuste a busca ou cadastre um novo cliente ao lado.
-                  </p>
-                </div>
+                <EmptyState
+                  title="Nenhum cliente encontrado para os filtros atuais."
+                  description="Ajuste a busca ou cadastre um novo cliente ao lado."
+                />
               )}
             </div>
 
-            <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-5 md:flex-row md:items-center md:justify-between">
-              <p className="text-sm text-slate-300">
+            <div className="mt-6 flex flex-col gap-3 border-t border-[var(--border)] pt-5 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm text-[var(--muted)]">
                 Pagina {page} de {totalPages}
               </p>
               <div className="flex gap-3">
-                <button
-                  type="button"
+                <Button
                   disabled={page <= 1 || isLoading}
                   onClick={() => void refreshCustomers(page - 1)}
-                  className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  variant="secondary"
                 >
                   Pagina anterior
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   disabled={page >= totalPages || isLoading}
                   onClick={() => void refreshCustomers(page + 1)}
-                  className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  variant="secondary"
                 >
                   Proxima pagina
-                </button>
+                </Button>
               </div>
             </div>
-          </article>
+          </Surface>
         </section>
 
         <aside className="grid gap-5">
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+          <Surface as="article" variant="default" className="p-6">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
               {formTitle}
             </p>
-            <h2 className="mt-3 text-2xl text-white">{formTitle}</h2>
+            <h2 className="mt-3 text-2xl font-semibold text-[var(--foreground-strong)]">
+              {formTitle}
+            </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
               {formDescription}
             </p>
 
             <form className="mt-6 grid gap-4" onSubmit={handleCustomerSubmit}>
-              <label className="grid gap-2 text-sm text-slate-200">
-                <span>Nome</span>
-                <input
+              <Field label="Nome" htmlFor="customer-name">
+                <Input
+                  id="customer-name"
                   type="text"
                   value={formValues.name}
                   onChange={(event) =>
                     handleFormFieldChange("name", event.target.value)
                   }
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                   placeholder="Razao social ou nome do contato"
                   required
                 />
-              </label>
+              </Field>
 
-              <label className="grid gap-2 text-sm text-slate-200">
-                <span>E-mail</span>
-                <input
+              <Field label="E-mail" htmlFor="customer-email">
+                <Input
+                  id="customer-email"
                   type="email"
                   value={formValues.email}
                   onChange={(event) =>
                     handleFormFieldChange("email", event.target.value)
                   }
-                  className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                   placeholder="contato@cliente.com"
                 />
-              </label>
+              </Field>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="grid gap-2 text-sm text-slate-200">
-                  <span>Telefone</span>
-                  <input
+                <Field label="Telefone" htmlFor="customer-phone">
+                  <Input
+                    id="customer-phone"
                     type="text"
                     value={formValues.phone}
                     onChange={(event) =>
                       handleFormFieldChange("phone", event.target.value)
                     }
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                     placeholder="11999990000"
                   />
-                </label>
+                </Field>
 
-                <label className="grid gap-2 text-sm text-slate-200">
-                  <span>Documento</span>
-                  <input
+                <Field label="Documento" htmlFor="customer-document">
+                  <Input
+                    id="customer-document"
                     type="text"
                     value={formValues.document}
                     onChange={(event) =>
                       handleFormFieldChange("document", event.target.value)
                     }
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                     placeholder="CNPJ ou identificador interno"
                   />
-                </label>
+                </Field>
               </div>
 
-              <label className="grid gap-2 text-sm text-slate-200">
-                <span>Observacoes</span>
-                <textarea
+              <Field label="Observacoes" htmlFor="customer-notes">
+                <Textarea
+                  id="customer-notes"
                   value={formValues.notes}
                   onChange={(event) =>
                     handleFormFieldChange("notes", event.target.value)
                   }
-                  className="min-h-32 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                   placeholder="Preferencias comerciais, janelas de contato, alertas internos."
                 />
-              </label>
+              </Field>
 
               {isLoadingDetail ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
-                  Carregando detalhes do cliente selecionado...
-                </div>
+                <FeedbackBanner
+                  description="Carregando detalhes do cliente selecionado..."
+                  title="Sincronizando dados"
+                />
               ) : null}
 
               {submitError ? (
-                <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                  {submitError}
-                </div>
+                <FeedbackBanner
+                  description={submitError}
+                  title="Falha ao salvar"
+                  variant="error"
+                />
               ) : null}
 
               {submitMessage ? (
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
-                  {submitMessage}
-                </div>
+                <FeedbackBanner
+                  description={submitMessage}
+                  title="Operação concluída"
+                  variant="success"
+                />
               ) : null}
 
               <div className="flex flex-col gap-3 md:flex-row">
-                <button
+                <Button
                   type="submit"
                   disabled={isSubmitting || isLoadingDetail}
-                  className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  size="lg"
                 >
                   {isSubmitting
                     ? "Salvando..."
                     : selectedCustomerId
                       ? "Salvar alteracoes"
                       : "Criar cliente"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="inline-flex rounded-full border border-white/10 bg-white/10 px-5 py-3 font-medium text-white transition hover:bg-white/15"
-                >
+                </Button>
+                <Button variant="secondary" size="lg" onClick={handleResetForm}>
                   Limpar formulario
-                </button>
+                </Button>
               </div>
             </form>
-          </article>
+          </Surface>
         </aside>
       </div>
     </div>
