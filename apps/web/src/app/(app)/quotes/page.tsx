@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
 import { useCatalog } from "@/hooks/useCatalog";
@@ -11,6 +13,8 @@ import type {
   CreateQuoteRequest,
   CreateQuoteVersionRequest,
   ExportQuoteJsonResponse,
+  ImportQuoteJsonRequest,
+  ImportQuoteJsonResponse,
   PdfResponse,
   QuoteDetail,
   QuoteSummary,
@@ -40,6 +44,8 @@ interface QuoteRevisionFormValues {
   items: QuoteRevisionItemFormValues[];
 }
 
+type QuoteStatusFilter = "all" | QuoteSummary["status"];
+
 const initialQuoteCreateFormValues: QuoteCreateFormValues = {
   customerId: "",
   title: "",
@@ -53,6 +59,29 @@ const initialQuoteRevisionFormValues: QuoteRevisionFormValues = {
   label: "",
   items: []
 };
+
+function buildImportJsonExample(customerId: string): string {
+  return JSON.stringify(
+    {
+      schemaVersion: "1.0",
+      customerId,
+      currency: "BRL",
+      category: "notebooks",
+      budgetMaxCents: 1500000,
+      usageContext: "Equipe administrativa com uso corporativo diário",
+      notes: "Preferir equipamentos com SSD e garantia comercial.",
+      items: [
+        {
+          type: "notebook",
+          model: "Notebook corporativo i5 16GB SSD",
+          quantity: 3
+        }
+      ]
+    },
+    null,
+    2
+  );
+}
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -81,6 +110,8 @@ function formatStatus(value: QuoteSummary["status"]): string {
 }
 
 export default function QuotesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { accessToken, tenant } = useAuthContext();
   const { loadCustomers } = useCustomers(accessToken);
   const { listProducts } = useCatalog(accessToken);
@@ -93,6 +124,7 @@ export default function QuotesPage() {
     createQuoteShareLink,
     revokeQuoteShareLink,
     generateQuotePdf,
+    importQuoteFromJson,
     exportQuoteToJson
   } = useQuotes(accessToken);
   const [customers, setCustomers] = useState<CustomerResponse[]>([]);
@@ -106,6 +138,13 @@ export default function QuotesPage() {
   const [exportedJson, setExportedJson] =
     useState<ExportQuoteJsonResponse | null>(null);
   const [pdfResult, setPdfResult] = useState<PdfResponse | null>(null);
+  const [importJsonText, setImportJsonText] = useState("");
+  const [importResult, setImportResult] =
+    useState<ImportQuoteJsonResponse | null>(null);
+  const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
+  const [quoteSearch, setQuoteSearch] = useState("");
+  const [quoteStatusFilter, setQuoteStatusFilter] =
+    useState<QuoteStatusFilter>("all");
   const [createForm, setCreateForm] = useState<QuoteCreateFormValues>(
     initialQuoteCreateFormValues
   );
@@ -115,17 +154,50 @@ export default function QuotesPage() {
   const [isLoadingBootstrap, setIsLoadingBootstrap] = useState(false);
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
+  const [isImportingQuote, setIsImportingQuote] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isRunningAction, setIsRunningAction] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [createMessage, setCreateMessage] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [detailMessage, setDetailMessage] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const routedQuoteId = searchParams.get("quoteId");
 
   const customerMap = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer])),
     [customers]
   );
+  const filteredQuotes = useMemo(() => {
+    const normalizedSearch = quoteSearch.trim().toLocaleLowerCase("pt-BR");
+
+    return quotes.filter((quote) => {
+      const customer = customerMap.get(quote.customerId);
+      const matchesStatus =
+        quoteStatusFilter === "all" || quote.status === quoteStatusFilter;
+
+      if (!matchesStatus) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const searchableText = [
+        quote.title,
+        quote.status,
+        formatStatus(quote.status),
+        customer?.name ?? "",
+        quote.currentVersion.versionNumber
+      ]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR");
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [customerMap, quoteSearch, quoteStatusFilter, quotes]);
   const currentVersionDetail = useMemo(() => {
     if (!selectedQuoteDetail) {
       return null;
@@ -187,10 +259,46 @@ export default function QuotesPage() {
     };
   }, [refreshQuotesWorkspace]);
 
+  const openQuotePanelRoute = useCallback(
+    (quoteId: string): void => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("quoteId", quoteId);
+      router.push(`/quotes?${nextParams.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const clearQuotePanelRoute = useCallback((): void => {
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("quoteId");
+    const query = nextParams.toString();
+
+    router.push(query ? `/quotes?${query}` : "/quotes", { scroll: false });
+  }, [router, searchParams]);
+
+  const resetQuotePanelState = useCallback((): void => {
+    setSelectedQuoteId(null);
+    setSelectedQuoteDetail(null);
+    setShareLinks([]);
+    setExportedJson(null);
+    setPdfResult(null);
+    setDetailMessage(null);
+    setDetailError(null);
+    setIsLoadingDetail(false);
+    setCopiedShareLinkId(null);
+  }, []);
+
   const loadQuotePanel = useCallback(
     async (quoteId: string) => {
+      setSelectedQuoteId(quoteId);
+      setSelectedQuoteDetail(null);
+      setShareLinks([]);
+      setExportedJson(null);
+      setPdfResult(null);
+      setCopiedShareLinkId(null);
       setIsLoadingDetail(true);
       setDetailError(null);
+      setDetailMessage(null);
 
       try {
         const [quoteDetailPayload, shareLinksPayload] = await Promise.all([
@@ -198,7 +306,6 @@ export default function QuotesPage() {
           listQuoteShareLinks(quoteId)
         ]);
 
-        setSelectedQuoteId(quoteId);
         setSelectedQuoteDetail(quoteDetailPayload);
         setShareLinks(shareLinksPayload);
       } catch (quoteError: unknown) {
@@ -213,6 +320,33 @@ export default function QuotesPage() {
     },
     [getQuoteById, listQuoteShareLinks]
   );
+
+  const handleCloseQuotePanel = useCallback((): void => {
+    resetQuotePanelState();
+    clearQuotePanelRoute();
+  }, [clearQuotePanelRoute, resetQuotePanelState]);
+
+  useEffect(() => {
+    const routeSyncTimeout = window.setTimeout(() => {
+      if (!routedQuoteId) {
+        if (selectedQuoteId) {
+          resetQuotePanelState();
+        }
+
+        return;
+      }
+
+      if (routedQuoteId === selectedQuoteId) {
+        return;
+      }
+
+      void loadQuotePanel(routedQuoteId);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(routeSyncTimeout);
+    };
+  }, [loadQuotePanel, resetQuotePanelState, routedQuoteId, selectedQuoteId]);
 
   useEffect(() => {
     if (!currentVersionDetail) {
@@ -246,6 +380,28 @@ export default function QuotesPage() {
     };
   }, [currentVersionDetail]);
 
+  useEffect(() => {
+    if (!selectedQuoteId) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        handleCloseQuotePanel();
+      }
+    }
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [handleCloseQuotePanel, selectedQuoteId]);
+
   function handleCreateFormFieldChange(
     field: keyof QuoteCreateFormValues,
     value: string
@@ -263,6 +419,47 @@ export default function QuotesPage() {
       productId: products[0]?.id ?? ""
     });
     setCreateMessage(null);
+  }
+
+  function handleUseImportExample(): void {
+    setImportJsonText(buildImportJsonExample(customers[0]?.id ?? ""));
+    setImportResult(null);
+    setImportMessage(null);
+    setImportError(null);
+  }
+
+  async function handleImportQuoteJson(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    setIsImportingQuote(true);
+    setImportMessage(null);
+    setImportError(null);
+    setImportResult(null);
+
+    try {
+      const parsedPayload = JSON.parse(importJsonText) as ImportQuoteJsonRequest;
+      const importedQuote = await importQuoteFromJson(parsedPayload);
+
+      setImportResult(importedQuote);
+      setImportMessage(
+        importedQuote.warnings.length
+          ? "Draft importado com alertas para revisÃ£o."
+          : "Draft importado com sucesso."
+      );
+      await refreshQuotesWorkspace();
+      openQuotePanelRoute(importedQuote.quoteId);
+    } catch (importFailure: unknown) {
+      setImportError(
+        importFailure instanceof SyntaxError
+          ? "JSON invÃ¡lido. Revise chaves, aspas e vÃ­rgulas antes de importar."
+          : importFailure instanceof Error
+            ? importFailure.message
+            : "Falha ao importar JSON do orÃ§amento."
+      );
+    } finally {
+      setIsImportingQuote(false);
+    }
   }
 
   async function handleCreateQuote(
@@ -301,7 +498,7 @@ export default function QuotesPage() {
 
       setCreateMessage("Orçamento criado com sucesso.");
       await refreshQuotesWorkspace();
-      await loadQuotePanel(createdQuote.id);
+      openQuotePanelRoute(createdQuote.id);
       handleResetQuoteForm();
     } catch (creationError: unknown) {
       setPageError(
@@ -370,6 +567,32 @@ export default function QuotesPage() {
       );
     } finally {
       setIsRunningAction(false);
+    }
+  }
+
+  async function handleCopyShareLink(shareLink: ShareLinkResponse): Promise<void> {
+    setDetailError(null);
+    setDetailMessage(null);
+
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareLink.url);
+      } else {
+        const copyTarget = document.createElement("textarea");
+        copyTarget.value = shareLink.url;
+        copyTarget.setAttribute("readonly", "true");
+        copyTarget.style.position = "fixed";
+        copyTarget.style.opacity = "0";
+        document.body.appendChild(copyTarget);
+        copyTarget.select();
+        document.execCommand("copy");
+        document.body.removeChild(copyTarget);
+      }
+
+      setCopiedShareLinkId(shareLink.id);
+      setDetailMessage("Link publico copiado para a area de transferencia.");
+    } catch {
+      setDetailError("Nao foi possivel copiar o link. Abra o link e copie pela barra do navegador.");
     }
   }
 
@@ -546,7 +769,7 @@ export default function QuotesPage() {
         </section>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="grid gap-5">
         <section className="grid gap-5">
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -684,9 +907,156 @@ export default function QuotesPage() {
           </article>
 
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
-              Lista de orçamentos
-            </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Importar JSON
+                </p>
+                <h2 className="mt-3 text-2xl text-white">
+                  Criar draft revisavel a partir de payload estruturado
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+                  Cole um JSON compativel para acelerar a montagem do orcamento.
+                  O backend normaliza os itens e abre o draft para revisao.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleUseImportExample}
+                disabled={customers.length === 0}
+                className="inline-flex w-fit rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Usar exemplo
+              </button>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={handleImportQuoteJson}>
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Payload JSON</span>
+                <textarea
+                  value={importJsonText}
+                  onChange={(event) => {
+                    setImportJsonText(event.target.value);
+                    setImportError(null);
+                    setImportMessage(null);
+                  }}
+                  className="min-h-56 rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 font-mono text-xs leading-6 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                  placeholder='{"schemaVersion":"1.0","customerId":"...","currency":"BRL","category":"notebooks","items":[{"type":"notebook","model":"Notebook corporativo","quantity":2}]}'
+                  spellCheck={false}
+                  required
+                />
+              </label>
+
+              {importError ? (
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {importError}
+                </div>
+              ) : null}
+
+              {importMessage ? (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                  {importMessage}
+                </div>
+              ) : null}
+
+              {importResult ? (
+                <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                    <p>
+                      {importResult.normalizedItems.length} item(ns)
+                      normalizado(s) na versao importada.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openQuotePanelRoute(importResult.quoteId)}
+                      className="text-left text-sky-300 underline-offset-4 hover:underline md:text-right"
+                    >
+                      Abrir draft importado
+                    </button>
+                  </div>
+
+                  {importResult.warnings.length ? (
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-3 text-amber-50">
+                      <p className="font-medium">Alertas para revisar</p>
+                      <ul className="mt-2 grid gap-2 text-sm leading-6">
+                        {importResult.warnings.map((warning) => (
+                          <li key={warning}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={
+                  isImportingQuote ||
+                  isLoadingBootstrap ||
+                  customers.length === 0 ||
+                  importJsonText.trim().length === 0
+                }
+                className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isImportingQuote ? "Importando..." : "Criar draft revisavel"}
+              </button>
+            </form>
+          </article>
+
+          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Lista de orçamentos
+                </p>
+                <p className="mt-3 text-sm text-slate-300">
+                  {filteredQuotes.length} de {quotes.length} orcamento(s) visiveis.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,360px)_180px]">
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Buscar</span>
+                  <input
+                    type="search"
+                    value={quoteSearch}
+                    onChange={(event) => setQuoteSearch(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    placeholder="Titulo, cliente ou versao"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Status</span>
+                  <select
+                    value={quoteStatusFilter}
+                    onChange={(event) =>
+                      setQuoteStatusFilter(event.target.value as QuoteStatusFilter)
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    <option value="all">Todos</option>
+                    <option value="draft">Draft</option>
+                    <option value="published">Publicado</option>
+                    <option value="archived">Arquivado</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {quoteSearch || quoteStatusFilter !== "all" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuoteSearch("");
+                  setQuoteStatusFilter("all");
+                }}
+                className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                Limpar filtros
+              </button>
+            ) : null}
             <div className="mt-6 grid gap-3">
               {isLoadingBootstrap ? (
                 [0, 1, 2].map((item) => (
@@ -695,8 +1065,8 @@ export default function QuotesPage() {
                     className="h-24 rounded-2xl border border-white/10 bg-white/5"
                   />
                 ))
-              ) : quotes.length ? (
-                quotes.map((quote) => {
+              ) : filteredQuotes.length ? (
+                filteredQuotes.map((quote) => {
                   const isSelected = quote.id === selectedQuoteId;
                   const customer = customerMap.get(quote.customerId);
 
@@ -704,7 +1074,8 @@ export default function QuotesPage() {
                     <button
                       key={quote.id}
                       type="button"
-                      onClick={() => void loadQuotePanel(quote.id)}
+                      onClick={() => openQuotePanelRoute(quote.id)}
+                      aria-current={isSelected ? "true" : undefined}
                       className={`rounded-2xl border px-4 py-4 text-left transition ${
                         isSelected
                           ? "border-sky-300/30 bg-sky-400/15"
@@ -738,6 +1109,10 @@ export default function QuotesPage() {
                     </button>
                   );
                 })
+              ) : quotes.length ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-300">
+                  Nenhum orcamento encontrado com os filtros atuais.
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-300">
                   Nenhum orçamento cadastrado ainda.
@@ -747,8 +1122,15 @@ export default function QuotesPage() {
           </article>
         </section>
 
-        <section className="grid gap-5">
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+        {selectedQuoteId ? (
+          <section className="fixed inset-0 z-40 overflow-y-auto bg-black/70 px-3 py-4 backdrop-blur-sm md:px-6 md:py-8">
+            <button
+              type="button"
+              aria-label="Fechar painel do orçamento"
+              className="fixed inset-0 h-full w-full cursor-default"
+              onClick={handleCloseQuotePanel}
+            />
+          <article className="relative z-10 mx-auto max-w-[1320px] rounded-[1.75rem] border border-white/10 bg-slate-950 p-5 shadow-2xl md:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
@@ -786,17 +1168,22 @@ export default function QuotesPage() {
                     Gerar PDF
                   </button>
                   {pdfResult ? (
-                    <a
+                    <Link
                       href={`/quotes/${selectedQuoteId}/document?quoteVersionId=${selectedQuoteDetail.currentVersion.id}`}
-                      target="_blank"
-                      rel="noreferrer"
                       className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Abrir documento
-                    </a>
+                    </Link>
                   ) : null}
                 </div>
               ) : null}
+              <button
+                type="button"
+                onClick={handleCloseQuotePanel}
+                className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                Fechar
+              </button>
             </div>
 
             {isLoadingDetail ? (
@@ -1000,30 +1387,51 @@ export default function QuotesPage() {
                               key={shareLink.id}
                               className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
                             >
-                              <p className="text-sm font-medium text-white">
-                                {shareLink.slug}
-                              </p>
-                              <a
-                                href={shareLink.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-2 block text-sm text-sky-300 underline-offset-4 hover:underline"
-                              >
-                                Abrir link público
-                              </a>
-                              <p className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">
-                                Status: {shareLink.status}
-                              </p>
-                              {shareLink.status === "active" ? (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleRevokeShareLink(shareLink.id)}
-                                  disabled={isRunningAction}
-                                  className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  Revogar
-                                </button>
-                              ) : null}
+                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-white">
+                                    {shareLink.slug}
+                                  </p>
+                                  <p className="mt-2 truncate rounded-full border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-slate-300">
+                                    {shareLink.url}
+                                  </p>
+                                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">
+                                    Status: {shareLink.status}
+                                  </p>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleCopyShareLink(shareLink)}
+                                    className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
+                                  >
+                                    {copiedShareLinkId === shareLink.id
+                                      ? "Copiado"
+                                      : "Copiar"}
+                                  </button>
+                                  <a
+                                    href={shareLink.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                                  >
+                                    Abrir
+                                  </a>
+                                  {shareLink.status === "active" ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void handleRevokeShareLink(shareLink.id)
+                                      }
+                                      disabled={isRunningAction}
+                                      className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                      Revogar
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </div>
                             </div>
                           ))
                         ) : (
@@ -1043,14 +1451,12 @@ export default function QuotesPage() {
                           <p className="text-sm text-slate-300">
                             Documento pronto para a versão {pdfResult.quoteVersionId}.
                           </p>
-                          <a
+                          <Link
                             href={`/quotes/${selectedQuoteId}/document?quoteVersionId=${selectedQuoteDetail.currentVersion.id}`}
-                            target="_blank"
-                            rel="noreferrer"
                             className="mt-3 inline-flex text-sm text-sky-300 underline-offset-4 hover:underline"
                           >
                             Abrir pré-visualização autenticada
-                          </a>
+                          </Link>
                           <p className="mt-3 text-xs uppercase tracking-[0.22em] text-slate-400">
                             Endpoint bruto: {pdfResult.fileUrl}
                           </p>
@@ -1067,6 +1473,7 @@ export default function QuotesPage() {
             ) : null}
           </article>
         </section>
+        ) : null}
       </div>
     </div>
   );

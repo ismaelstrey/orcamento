@@ -54,7 +54,9 @@ vi.mock("@orcamento/auth", () => ({
 }));
 
 import {
+  createQuoteShareLink,
   exportQuoteToJson,
+  generateQuotePdf,
   getPublicQuoteBySlug,
   importQuoteFromJson
 } from "./service";
@@ -386,6 +388,143 @@ describe("quotes/service", () => {
         versionId: "qv_1",
         warningCount: 1,
         normalizedItemsCount: 1
+      }
+    });
+  });
+
+  it("bloqueia importacao JSON quando o cliente nao pertence ao tenant", async () => {
+    vi.mocked(mockPrisma.customer.findFirst).mockResolvedValue(null);
+
+    await expect(
+      importQuoteFromJson(authContext, {
+        customerId: "cus_outro_tenant",
+        schemaVersion: "1.0.0",
+        currency: "BRL",
+        category: "Computador",
+        items: [
+          {
+            type: "cpu",
+            model: "Ryzen 7600",
+            quantity: 1
+          }
+        ]
+      })
+    ).rejects.toMatchObject({
+      code: "tenant_scope_error",
+      statusCode: 403
+    });
+
+    expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "cus_outro_tenant",
+        tenantId: "ten_1"
+      }
+    });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("bloqueia criacao de share link para versao fora do orcamento", async () => {
+    vi.mocked(mockPrisma.quote.findFirst).mockResolvedValue({
+      id: "quo_1"
+    });
+    vi.mocked(mockPrisma.quoteVersion.findFirst).mockResolvedValue(null);
+
+    await expect(
+      createQuoteShareLink(
+        authContext,
+        "quo_1",
+        {
+          quoteVersionId: "qv_de_outro_orcamento"
+        },
+        "http://localhost:3000"
+      )
+    ).rejects.toMatchObject({
+      code: "tenant_scope_error",
+      statusCode: 403
+    });
+
+    expect(mockPrisma.quote.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "quo_1",
+        tenantId: "ten_1"
+      },
+      select: {
+        id: true
+      }
+    });
+    expect(mockPrisma.quoteVersion.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "qv_de_outro_orcamento",
+        quoteId: "quo_1"
+      },
+      include: {
+        items: true
+      }
+    });
+    expect(mockPrisma.quoteShareLink.create).not.toHaveBeenCalled();
+    expect(mockLogAuditEvent).not.toHaveBeenCalled();
+  });
+  it("retorna URL baixavel ao gerar documento comercial da versao atual", async () => {
+    vi.mocked(mockPrisma.quote.findFirst).mockResolvedValue({
+      id: "quo_1",
+      tenantId: "ten_1",
+      customerId: "cus_1",
+      title: "Orcamento principal",
+      status: "draft",
+      publicNotes: null,
+      internalNotes: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+      customer: {
+        id: "cus_1",
+        tenantId: "ten_1",
+        name: "Cliente XPTO",
+        email: null,
+        phone: null,
+        document: null,
+        notes: null,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-02T00:00:00.000Z")
+      },
+      versions: [
+        {
+          id: "qv_1",
+          quoteId: "quo_1",
+          versionNumber: 1,
+          label: null,
+          currency: "BRL",
+          subtotalCents: 2000,
+          discountCents: 0,
+          totalCents: 2000,
+          sourceType: "manual",
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          items: []
+        }
+      ]
+    });
+
+    const result = await generateQuotePdf(
+      authContext,
+      "quo_1",
+      {},
+      "http://localhost:3000"
+    );
+
+    expect(result).toEqual({
+      fileUrl:
+        "http://localhost:3000/api/v1/quotes/quo_1/pdf?quoteVersionId=qv_1&download=1",
+      quoteVersionId: "qv_1"
+    });
+    expect(mockLogAuditEvent).toHaveBeenCalledWith({
+      tenantId: "ten_1",
+      actorUserId: "usr_1",
+      action: "quote_pdf.generate",
+      entityType: "quote_version",
+      entityId: "qv_1",
+      payloadJson: {
+        quoteId: "quo_1",
+        versionNumber: 1
       }
     });
   });

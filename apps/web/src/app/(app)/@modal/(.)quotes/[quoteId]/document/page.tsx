@@ -1,14 +1,14 @@
 import { QuoteDocumentModal } from "@/components/quotes/quoteDocumentModal";
 
-interface QuoteDocumentPageProps {
+interface QuoteDocumentModalPageProps {
   params: Promise<{
     quoteId: string;
   }>;
 }
 
-export default async function QuoteDocumentPage({
+export default async function QuoteDocumentModalPage({
   params
-}: QuoteDocumentPageProps) {
+}: QuoteDocumentModalPageProps) {
   const { quoteId } = await params;
 
   return <QuoteDocumentModal quoteId={quoteId} />;

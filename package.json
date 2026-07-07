@@ -4,18 +4,15 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.18.3",
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "scripts": {
     "dev": "corepack pnpm --filter web dev",
     "build": "corepack pnpm -r --if-present build",
     "lint": "corepack pnpm --filter web lint",
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "test": "corepack pnpm -r --if-present test",
-    "db:generate": "corepack pnpm exec prisma generate --schema ./prisma/schema.prisma",
-    "db:migrate": "corepack pnpm exec prisma migrate dev --schema ./prisma/schema.prisma",
-    "db:seed": "corepack pnpm exec tsx prisma/seed.ts"
+    "db:generate": "corepack pnpm exec prisma generate",
+    "db:migrate": "corepack pnpm exec prisma migrate dev",
+    "db:seed": "corepack pnpm exec prisma db seed"
   },
   "dependencies": {
     "@orcamento/auth": "workspace:*",
@@ -25,6 +22,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
+    "dotenv": "16.6.1",
     "eslint": "^9.39.1",
     "prisma": "^6.16.3",
     "tsx": "^4.20.6",

@@ -66,6 +66,7 @@ export async function GET(
     const { authContext } = authenticateNextRequest(request);
     const { quoteId } = await context.params;
     const quoteVersionId = request.nextUrl.searchParams.get("quoteVersionId");
+    const shouldDownload = request.nextUrl.searchParams.get("download") === "1";
     const response = await getQuotePdfDocument(authContext, quoteId, {
       quoteVersionId: quoteVersionId ?? undefined
     });
@@ -86,7 +87,8 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `inline; filename="${response.fileName}"`,
+        "Content-Disposition": `${shouldDownload ? "attachment" : "inline"}; filename="${response.fileName}"`,
+        "X-Content-Type-Options": "nosniff",
         "X-Quote-Version-Id": response.quoteVersionId
       }
     });

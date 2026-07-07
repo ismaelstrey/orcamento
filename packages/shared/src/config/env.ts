@@ -1,37 +1,27 @@
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { cwd, loadEnvFile } from "node:process";
+import { loadEnvFile } from "node:process";
 import { z } from "zod";
 
 /**
  * Valida e expõe as variáveis de ambiente compartilhadas pelo workspace.
  */
-function loadWorkspaceEnvFiles(): void {
-  const visitedPaths = new Set<string>();
-  let currentDirectory = cwd();
+function loadKnownWorkspaceEnvFiles(): void {
+  const candidateEnvFiles = [
+    "../../.env.local",
+    "../../.env",
+    ".env.local",
+    ".env"
+  ] as const;
 
-  while (true) {
-    const envLocalPath = resolve(currentDirectory, ".env.local");
-    const envPath = resolve(currentDirectory, ".env");
-
-    for (const filePath of [envLocalPath, envPath]) {
-      if (!visitedPaths.has(filePath) && existsSync(filePath)) {
-        loadEnvFile(filePath);
-        visitedPaths.add(filePath);
-      }
+  for (const filePath of candidateEnvFiles) {
+    try {
+      loadEnvFile(filePath);
+    } catch {
+      // Ausência de arquivo local é aceitável em CI/produção com env injetado.
     }
-
-    const parentDirectory = dirname(currentDirectory);
-
-    if (parentDirectory === currentDirectory) {
-      break;
-    }
-
-    currentDirectory = parentDirectory;
   }
 }
 
-loadWorkspaceEnvFiles();
+loadKnownWorkspaceEnvFiles();
 
 const envSchema = z.object({
   NODE_ENV: z

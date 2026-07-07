@@ -470,6 +470,7 @@ function buildQuotePdfFileUrl(
 ): string {
   const pdfUrl = new URL(`/api/v1/quotes/${quoteId}/pdf`, baseUrl);
   pdfUrl.searchParams.set("quoteVersionId", quoteVersionId);
+  pdfUrl.searchParams.set("download", "1");
 
   return pdfUrl.toString();
 }
