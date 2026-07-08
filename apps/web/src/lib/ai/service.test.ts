@@ -6,7 +6,8 @@ import {
 } from "./quoteDraft";
 import {
   AiDraftGenerationError,
-  generateQuoteDraftReview
+  generateQuoteDraftReview,
+  generateQuoteDraftReviewWithFallback
 } from "./service";
 
 function createProviderMock(
@@ -152,19 +153,143 @@ describe("ai/service", () => {
       }
     } as Awaited<ReturnType<AiQuoteDraftProvider["generateQuoteDraft"]>>);
 
+    const promise = generateQuoteDraftReview({
+      provider,
+      request
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(AiDraftGenerationError);
+    await expect(promise).rejects.toMatchObject({
+      code: "invalid_provider_output"
+    });
+  });
+
+  it("usa provider seguinte quando o primeiro falha", async () => {
+    const failingProvider: AiQuoteDraftProvider = {
+      providerName: "primary-provider",
+      generateQuoteDraft: vi.fn().mockRejectedValue(new Error("rate limit"))
+    };
+    const fallbackProvider = createProviderMock({
+      draft: {
+        schemaVersion: quoteDraftOutputSchemaVersion,
+        title: "Draft por fallback",
+        category: "notebooks",
+        currency: "BRL",
+        items: [
+          {
+            type: "notebook",
+            model: "Notebook corporativo",
+            quantity: 3,
+            confidence: 0.82
+          }
+        ],
+        warnings: []
+      },
+      metrics: {
+        provider: "fallback",
+        model: "fallback-model"
+      }
+    });
+
+    const review = await generateQuoteDraftReviewWithFallback({
+      providers: [failingProvider, fallbackProvider],
+      request
+    });
+
+    expect(failingProvider.generateQuoteDraft).toHaveBeenCalledWith(request);
+    expect(fallbackProvider.generateQuoteDraft).toHaveBeenCalledWith(request);
+    expect(review.provider).toBe("fake-provider");
+    expect(review.fallbackAttempts).toEqual([
+      {
+        provider: "primary-provider",
+        code: "provider_error",
+        message: "rate limit"
+      }
+    ]);
+  });
+
+  it("usa fallback quando provider retorna saida fora do schema", async () => {
+    const invalidProvider = createProviderMock({
+      draft: {
+        schemaVersion: quoteDraftOutputSchemaVersion,
+        title: "Draft sem itens",
+        category: "notebooks",
+        currency: "BRL",
+        items: [],
+        warnings: []
+      },
+      metrics: {
+        provider: "invalid",
+        model: "invalid-model"
+      }
+    } as Awaited<ReturnType<AiQuoteDraftProvider["generateQuoteDraft"]>>);
+    const validProvider = createProviderMock({
+      draft: {
+        schemaVersion: quoteDraftOutputSchemaVersion,
+        title: "Draft valido",
+        category: "notebooks",
+        currency: "BRL",
+        items: [
+          {
+            type: "notebook",
+            model: "Notebook corporativo",
+            quantity: 1,
+            confidence: 0.91
+          }
+        ],
+        warnings: []
+      },
+      metrics: {
+        provider: "valid",
+        model: "valid-model"
+      }
+    });
+
+    const review = await generateQuoteDraftReviewWithFallback({
+      providers: [invalidProvider, validProvider],
+      request
+    });
+
+    expect(review.title).toBe("Draft valido");
+    expect(review.fallbackAttempts).toEqual([
+      {
+        provider: "fake-provider",
+        code: "invalid_provider_output",
+        message: "Provider retornou um draft incompatível com o schema versionado."
+      }
+    ]);
+  });
+
+  it("falha cedo quando nenhum provider esta configurado", async () => {
     await expect(
-      generateQuoteDraftReview({
-        provider,
-        request
-      })
-    ).rejects.toBeInstanceOf(AiDraftGenerationError);
-    await expect(
-      generateQuoteDraftReview({
-        provider,
+      generateQuoteDraftReviewWithFallback({
+        providers: [],
         request
       })
     ).rejects.toMatchObject({
-      code: "invalid_provider_output"
+      code: "provider_error",
+      message: "Nenhum provider de IA configurado para gerar draft."
+    });
+  });
+
+  it("falha com resumo quando todos os providers configurados falham", async () => {
+    const firstProvider: AiQuoteDraftProvider = {
+      providerName: "first",
+      generateQuoteDraft: vi.fn().mockRejectedValue(new Error("indisponivel"))
+    };
+    const secondProvider: AiQuoteDraftProvider = {
+      providerName: "second",
+      generateQuoteDraft: vi.fn().mockRejectedValue(new Error("timeout"))
+    };
+
+    await expect(
+      generateQuoteDraftReviewWithFallback({
+        providers: [firstProvider, secondProvider],
+        request
+      })
+    ).rejects.toMatchObject({
+      code: "provider_error",
+      message: "Todos os providers de IA falharam (2 tentativa(s))."
     });
   });
 });

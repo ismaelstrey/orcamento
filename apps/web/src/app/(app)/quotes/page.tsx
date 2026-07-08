@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
+import { useAiQuoteDraft } from "@/hooks/useAiQuoteDraft";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useQuotes } from "@/hooks/useQuotes";
+import type { QuoteDraftFallbackReview } from "@/lib/ai/service";
 import type { CustomerResponse } from "@/lib/customers/schemas";
 import type { ProductResponse } from "@/lib/catalog/schemas";
 import type {
@@ -44,6 +46,12 @@ interface QuoteRevisionFormValues {
   items: QuoteRevisionItemFormValues[];
 }
 
+interface QuoteAiDraftFormValues {
+  customerId: string;
+  userText: string;
+  budgetMaxCents: string;
+}
+
 type QuoteStatusFilter = "all" | QuoteSummary["status"];
 
 const quotePageSize = 5;
@@ -60,6 +68,12 @@ const initialQuoteCreateFormValues: QuoteCreateFormValues = {
 const initialQuoteRevisionFormValues: QuoteRevisionFormValues = {
   label: "",
   items: []
+};
+
+const initialQuoteAiDraftFormValues: QuoteAiDraftFormValues = {
+  customerId: "",
+  userText: "",
+  budgetMaxCents: ""
 };
 
 function buildImportJsonExample(customerId: string): string {
@@ -127,6 +141,7 @@ export default function QuotesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accessToken, tenant } = useAuthContext();
+  const { generateQuoteDraft } = useAiQuoteDraft(accessToken);
   const { loadCustomers } = useCustomers(accessToken);
   const { listProducts } = useCatalog(accessToken);
   const {
@@ -155,6 +170,11 @@ export default function QuotesPage() {
   const [importJsonText, setImportJsonText] = useState("");
   const [importResult, setImportResult] =
     useState<ImportQuoteJsonResponse | null>(null);
+  const [aiDraftForm, setAiDraftForm] = useState<QuoteAiDraftFormValues>(
+    initialQuoteAiDraftFormValues
+  );
+  const [aiDraftReview, setAiDraftReview] =
+    useState<QuoteDraftFallbackReview | null>(null);
   const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
   const [quoteSearch, setQuoteSearch] = useState("");
   const [quoteStatusFilter, setQuoteStatusFilter] =
@@ -170,12 +190,15 @@ export default function QuotesPage() {
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
   const [isImportingQuote, setIsImportingQuote] = useState(false);
+  const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isRunningAction, setIsRunningAction] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [aiDraftMessage, setAiDraftMessage] = useState<string | null>(null);
+  const [aiDraftError, setAiDraftError] = useState<string | null>(null);
   const [detailMessage, setDetailMessage] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const routedQuoteId = searchParams.get("quoteId");
@@ -262,6 +285,13 @@ export default function QuotesPage() {
           currentValues.productId ||
           productsPayload[0]?.id ||
           initialQuoteCreateFormValues.productId
+      }));
+      setAiDraftForm((currentValues) => ({
+        ...currentValues,
+        customerId:
+          currentValues.customerId ||
+          customersPayload.items[0]?.id ||
+          initialQuoteAiDraftFormValues.customerId
       }));
     } catch (bootstrapError: unknown) {
       setPageError(
@@ -461,6 +491,18 @@ export default function QuotesPage() {
     }));
   }
 
+  function handleAiDraftFormFieldChange(
+    field: keyof QuoteAiDraftFormValues,
+    value: string
+  ): void {
+    setAiDraftForm((currentValues) => ({
+      ...currentValues,
+      [field]: value
+    }));
+    setAiDraftError(null);
+    setAiDraftMessage(null);
+  }
+
   function handleResetQuoteForm(): void {
     setCreateForm({
       ...initialQuoteCreateFormValues,
@@ -475,6 +517,57 @@ export default function QuotesPage() {
     setImportResult(null);
     setImportMessage(null);
     setImportError(null);
+  }
+
+  async function handleGenerateAiDraft(
+    event: React.FormEvent<HTMLFormElement>
+  ): Promise<void> {
+    event.preventDefault();
+    setIsGeneratingAiDraft(true);
+    setAiDraftMessage(null);
+    setAiDraftError(null);
+    setAiDraftReview(null);
+
+    try {
+      const normalizedBudget = aiDraftForm.budgetMaxCents.trim();
+      const budgetMaxCents = normalizedBudget
+        ? Math.round(Number(normalizedBudget.replace(",", ".")) * 100)
+        : undefined;
+
+      if (
+        budgetMaxCents !== undefined &&
+        (!Number.isInteger(budgetMaxCents) || budgetMaxCents <= 0)
+      ) {
+        throw new Error("Informe um orçamento máximo válido ou deixe o campo vazio.");
+      }
+
+      const review = await generateQuoteDraft({
+        customerId: aiDraftForm.customerId,
+        userText: aiDraftForm.userText.trim(),
+        currency: "BRL",
+        ...(budgetMaxCents ? { budgetMaxCents } : {}),
+        catalogHints: products.slice(0, 20).map((product) => ({
+          productId: product.id,
+          name: product.name,
+          category: product.categoryId
+        }))
+      });
+
+      setAiDraftReview(review);
+      setImportJsonText(JSON.stringify(review.importPayload, null, 2));
+      setImportResult(null);
+      setImportError(null);
+      setImportMessage("Draft de IA convertido em JSON. Revise antes de importar.");
+      setAiDraftMessage("Draft gerado e enviado para a área de importação JSON.");
+    } catch (draftError: unknown) {
+      setAiDraftError(
+        draftError instanceof Error
+          ? draftError.message
+          : "Falha ao gerar draft com assistente de IA."
+      );
+    } finally {
+      setIsGeneratingAiDraft(false);
+    }
   }
 
   async function handleImportQuoteJson(
@@ -951,6 +1044,127 @@ export default function QuotesPage() {
                 className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSubmittingQuote ? "Criando..." : "Criar orçamento"}
+              </button>
+            </form>
+          </article>
+
+          <article className="rounded-[1.75rem] border border-sky-300/15 bg-slate-950/45 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Assistente IA
+                </p>
+                <h2 className="mt-3 text-2xl text-white">
+                  Gerar payload estruturado a partir de briefing
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300">
+                  Descreva a necessidade comercial e deixe a camada de IA preparar
+                  um JSON revisavel para o fluxo de importacao.
+                </p>
+              </div>
+
+              <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.24em] text-slate-300">
+                Preview V2
+              </span>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={handleGenerateAiDraft}>
+              <div className="grid gap-4 md:grid-cols-[1fr_180px]">
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Cliente</span>
+                  <select
+                    value={aiDraftForm.customerId}
+                    onChange={(event) =>
+                      handleAiDraftFormFieldChange("customerId", event.target.value)
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                    required
+                  >
+                    <option value="">Selecione um cliente</option>
+                    {customers.map((customer) => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Budget maximo</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={aiDraftForm.budgetMaxCents}
+                    onChange={(event) =>
+                      handleAiDraftFormFieldChange(
+                        "budgetMaxCents",
+                        event.target.value
+                      )
+                    }
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    placeholder="12000,00"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2 text-sm text-slate-200">
+                <span>Briefing</span>
+                <textarea
+                  value={aiDraftForm.userText}
+                  onChange={(event) =>
+                    handleAiDraftFormFieldChange("userText", event.target.value)
+                  }
+                  className="min-h-32 rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-sm leading-7 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                  placeholder="Ex: Preciso de tres notebooks corporativos para uma equipe comercial, com boa bateria e garantia."
+                  required
+                />
+              </label>
+
+              {aiDraftError ? (
+                <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
+                  {aiDraftError}
+                </div>
+              ) : null}
+
+              {aiDraftMessage ? (
+                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                  {aiDraftMessage}
+                </div>
+              ) : null}
+
+              {aiDraftReview ? (
+                <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <p>
+                      {aiDraftReview.title} gerado por {aiDraftReview.provider}.
+                    </p>
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200">
+                      Confiança media{" "}
+                      {Math.round(aiDraftReview.confidenceSummary.average * 100)}%
+                    </p>
+                  </div>
+
+                  {aiDraftReview.warnings.length ? (
+                    <ul className="grid gap-2 text-sm leading-6 text-amber-100">
+                      {aiDraftReview.warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={
+                  isGeneratingAiDraft ||
+                  isLoadingBootstrap ||
+                  customers.length === 0 ||
+                  aiDraftForm.userText.trim().length < 10
+                }
+                className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGeneratingAiDraft ? "Gerando..." : "Gerar JSON com IA"}
               </button>
             </form>
           </article>

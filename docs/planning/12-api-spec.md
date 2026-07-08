@@ -309,6 +309,54 @@ Request:
 
 ## Importação e exportação JSON
 
+### POST /api/v1/ai/quote-draft
+
+Gera uma revisão de draft de orçamento a partir de briefing em linguagem natural.
+
+Request:
+
+```json
+{
+  "customerId": "cus_1",
+  "userText": "Preciso de tres notebooks corporativos para equipe comercial.",
+  "currency": "BRL",
+  "budgetMaxCents": 1200000,
+  "catalogHints": [
+    {
+      "productId": "prd_1",
+      "name": "Notebook corporativo i5",
+      "category": "notebooks"
+    }
+  ]
+}
+```
+
+Response esperada:
+
+- payload importável no contrato de `POST /api/v1/quotes/import-json`;
+- versão de prompt e schema usados;
+- resumo de confiança;
+- warnings determinísticos;
+- métricas de provider quando houver IA configurada.
+
+Quando nenhum provider estiver configurado, a rota deve responder `503` com:
+
+```json
+{
+  "error": "provider_error",
+  "details": {
+    "message": "Nenhum provider de IA configurado para gerar draft."
+  }
+}
+```
+
+Para desenvolvimento e demos sem custo externo, o provider determinístico local
+pode ser habilitado com:
+
+```text
+AI_QUOTE_DRAFT_PROVIDER=local
+```
+
 ### POST /api/v1/quotes/import-json
 
 Importa um orçamento estruturado e cria draft inicial.
