@@ -113,6 +113,18 @@ Comandos principais do workspace:
 - `corepack pnpm db:migrate`
 - `corepack pnpm db:seed`
 
+## Build e execucao em producao
+
+Para subir a aplicacao localmente no modo de producao, execute os comandos na raiz do repositorio:
+
+```bash
+npm run build
+npm run start
+```
+
+O comando `npm run build` compila os pacotes do workspace e gera o build otimizado do app `web`.
+Depois disso, `npm run start` inicia o Next.js usando o build gerado em `apps/web/.next`.
+
 Cobertura atualmente adicionada:
 
 - testes unitários do `@orcamento/auth`;

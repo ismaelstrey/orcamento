@@ -29,6 +29,30 @@ interface ProductFormValues {
   specificationsText: string;
 }
 
+type CatalogWorkspaceTab = "products" | "categories" | "brands";
+
+const catalogWorkspaceTabs: Array<{
+  value: CatalogWorkspaceTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "products",
+    label: "Produtos",
+    description: "Cadastre, edite e consulte itens comerciais."
+  },
+  {
+    value: "categories",
+    label: "Categorias",
+    description: "Organize a classificacao usada nos orcamentos."
+  },
+  {
+    value: "brands",
+    label: "Marcas",
+    description: "Mantenha referencias comerciais vinculaveis."
+  }
+];
+
 const initialSimpleEntryFormValues: SimpleEntryFormValues = {
   name: "",
   slug: ""
@@ -138,6 +162,10 @@ export default function CatalogPage() {
     initialProductFormValues
   );
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [activeCatalogTab, setActiveCatalogTab] =
+    useState<CatalogWorkspaceTab>("products");
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
   const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
@@ -157,6 +185,39 @@ export default function CatalogPage() {
     () => new Map(brands.map((brand) => [brand.id, brand])),
     [brands]
   );
+  const filteredProducts = useMemo(() => {
+    const normalizedSearch = productSearch.trim().toLocaleLowerCase("pt-BR");
+
+    return products.filter((product) => {
+      const category = categoryMap.get(product.categoryId);
+      const brand = product.brandId ? brandMap.get(product.brandId) : null;
+      const matchesCategory =
+        productCategoryFilter === "all" ||
+        product.categoryId === productCategoryFilter;
+
+      if (!matchesCategory) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const searchableText = [
+        product.name,
+        product.sku ?? "",
+        category?.name ?? "",
+        brand?.name ?? "",
+        product.currency
+      ]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR");
+
+      return searchableText.includes(normalizedSearch);
+    });
+  }, [brandMap, categoryMap, productCategoryFilter, productSearch, products]);
+  const hasProductFilters =
+    productSearch.trim().length > 0 || productCategoryFilter !== "all";
 
   const refreshCatalog = useCallback(async () => {
     setIsLoading(true);
@@ -388,8 +449,54 @@ export default function CatalogPage() {
         </section>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <section className="grid gap-5">
+      <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-2">
+        <div
+          role="tablist"
+          aria-label="Navegacao do catalogo"
+          className="grid gap-2 md:grid-cols-3"
+        >
+          {catalogWorkspaceTabs.map((tab) => {
+            const isActive = activeCatalogTab === tab.value;
+            const count =
+              tab.value === "products"
+                ? products.length
+                : tab.value === "categories"
+                  ? categories.length
+                  : brands.length;
+
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveCatalogTab(tab.value)}
+                className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
+                  isActive
+                    ? "border-sky-300/35 bg-sky-400/15 text-white shadow-[0_0_30px_rgba(56,189,248,0.12)]"
+                    : "border-transparent bg-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-slate-100"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-3 text-sm font-semibold">
+                  {tab.label}
+                  <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 font-mono text-[11px] text-sky-100">
+                    {count}
+                  </span>
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">
+                  {tab.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-5">
+        <section
+          hidden={activeCatalogTab !== "categories"}
+          className="grid gap-5"
+        >
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
               Categorias
@@ -474,7 +581,9 @@ export default function CatalogPage() {
               )}
             </div>
           </article>
+        </section>
 
+        <section hidden={activeCatalogTab !== "brands"} className="grid gap-5">
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
               Marcas
@@ -561,7 +670,7 @@ export default function CatalogPage() {
           </article>
         </section>
 
-        <section className="grid gap-5">
+        <section hidden={activeCatalogTab !== "products"} className="grid gap-5">
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -755,9 +864,62 @@ export default function CatalogPage() {
           </article>
 
           <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
-              Lista de produtos
-            </p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                  Lista de produtos
+                </p>
+                <p className="mt-3 text-sm text-slate-300">
+                  {filteredProducts.length} de {products.length} produto(s)
+                  visiveis.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,360px)_220px]">
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Buscar</span>
+                  <input
+                    type="search"
+                    value={productSearch}
+                    onChange={(event) => setProductSearch(event.target.value)}
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    placeholder="Nome, SKU, marca ou moeda"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Categoria</span>
+                  <select
+                    value={productCategoryFilter}
+                    onChange={(event) =>
+                      setProductCategoryFilter(event.target.value)
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    <option value="all">Todas</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {hasProductFilters ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setProductSearch("");
+                  setProductCategoryFilter("all");
+                }}
+                className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+              >
+                Limpar filtros
+              </button>
+            ) : null}
+
             <div className="mt-6 grid gap-3">
               {isLoading ? (
                 [0, 1, 2].map((item) => (
@@ -766,8 +928,8 @@ export default function CatalogPage() {
                     className="h-24 rounded-2xl border border-white/10 bg-white/5"
                   />
                 ))
-              ) : products.length ? (
-                products.map((product) => {
+              ) : filteredProducts.length ? (
+                filteredProducts.map((product) => {
                   const isSelected = product.id === selectedProductId;
                   const categoryName = categoryMap.get(product.categoryId)?.name;
                   const brandName = product.brandId
@@ -810,6 +972,10 @@ export default function CatalogPage() {
                     </button>
                   );
                 })
+              ) : products.length ? (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-300">
+                  Nenhum produto encontrado com os filtros atuais.
+                </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 p-5 text-sm text-slate-300">
                   Nenhum produto cadastrado ainda.

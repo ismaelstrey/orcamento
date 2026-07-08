@@ -23,6 +23,24 @@ import type {
   QuoteSummary,
   ShareLinkResponse
 } from "@/lib/quotes/schemas";
+import {
+  buildQuoteWorkbenchCsvContent,
+  buildQuoteWorkbenchPagination,
+  buildQuoteWorkbenchRecommendations,
+  buildQuoteWorkbenchSummary,
+  buildQuoteWorkbenchViewModels,
+  filterQuoteWorkbenchViewModels,
+  getDefaultQuoteWorkbenchFilters,
+  hasActiveQuoteWorkbenchFilters,
+  paginateQuoteWorkbenchViewModels,
+  quoteSortOptions,
+  quoteStatusFilterOptions,
+  quoteValueBandOptions,
+  quoteWorkbenchPageSize,
+  type QuoteSortKey,
+  type QuoteStatusFilter,
+  type QuoteValueBandFilter
+} from "@/lib/quotes/workbench";
 
 interface QuoteCreateFormValues {
   customerId: string;
@@ -53,9 +71,34 @@ interface QuoteAiDraftFormValues {
   budgetMaxCents: string;
 }
 
-type QuoteStatusFilter = "all" | QuoteSummary["status"];
+type QuoteWorkspaceTab = "list" | "import" | "ai" | "create";
 
-const quotePageSize = 5;
+const quoteWorkspaceTabs: Array<{
+  value: QuoteWorkspaceTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "list",
+    label: "Lista de orcamentos",
+    description: "Acompanhe pipeline, filtros e historico comercial."
+  },
+  {
+    value: "import",
+    label: "Importar JSON",
+    description: "Crie drafts revisaveis a partir de payloads estruturados."
+  },
+  {
+    value: "ai",
+    label: "Assistente IA",
+    description: "Transforme briefings em JSON pronto para revisao."
+  },
+  {
+    value: "create",
+    label: "Novo orcamento",
+    description: "Monte uma proposta manual com item do catalogo."
+  }
+];
 
 const initialQuoteCreateFormValues: QuoteCreateFormValues = {
   customerId: "",
@@ -125,18 +168,6 @@ function formatCurrency(valueInCents: number, currency: string): string {
   }).format(valueInCents / 100);
 }
 
-function formatStatus(value: QuoteSummary["status"]): string {
-  if (value === "draft") {
-    return "Draft";
-  }
-
-  if (value === "published") {
-    return "Publicado";
-  }
-
-  return "Arquivado";
-}
-
 function formatSourceType(value: QuoteDetail["versions"][number]["sourceType"]): string {
   if (value === "import_json") {
     return "Importacao JSON";
@@ -194,9 +225,11 @@ export default function QuotesPage() {
     useState<QuoteDraftProviderCapabilities | null>(null);
   const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
   const [hasCopiedAiJson, setHasCopiedAiJson] = useState(false);
-  const [quoteSearch, setQuoteSearch] = useState("");
-  const [quoteStatusFilter, setQuoteStatusFilter] =
-    useState<QuoteStatusFilter>("all");
+  const [activeQuoteTab, setActiveQuoteTab] =
+    useState<QuoteWorkspaceTab>("list");
+  const [quoteWorkbenchFilters, setQuoteWorkbenchFilters] = useState(
+    getDefaultQuoteWorkbenchFilters
+  );
   const [quotePage, setQuotePage] = useState(1);
   const [createForm, setCreateForm] = useState<QuoteCreateFormValues>(
     initialQuoteCreateFormValues
@@ -229,45 +262,53 @@ export default function QuotesPage() {
     () => new Map(customers.map((customer) => [customer.id, customer])),
     [customers]
   );
-  const filteredQuotes = useMemo(() => {
-    const normalizedSearch = quoteSearch.trim().toLocaleLowerCase("pt-BR");
-
-    return quotes.filter((quote) => {
-      const customer = customerMap.get(quote.customerId);
-      const matchesStatus =
-        quoteStatusFilter === "all" || quote.status === quoteStatusFilter;
-
-      if (!matchesStatus) {
-        return false;
-      }
-
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const searchableText = [
-        quote.title,
-        quote.status,
-        formatStatus(quote.status),
-        customer?.name ?? "",
-        quote.currentVersion.versionNumber
-      ]
-        .join(" ")
-        .toLocaleLowerCase("pt-BR");
-
-      return searchableText.includes(normalizedSearch);
-    });
-  }, [customerMap, quoteSearch, quoteStatusFilter, quotes]);
-  const quoteTotalPages = Math.max(1, Math.ceil(filteredQuotes.length / quotePageSize));
-  const paginatedQuotes = useMemo(() => {
-    const startIndex = (quotePage - 1) * quotePageSize;
-
-    return filteredQuotes.slice(startIndex, startIndex + quotePageSize);
-  }, [filteredQuotes, quotePage]);
-  const quotePageStart = filteredQuotes.length
-    ? (quotePage - 1) * quotePageSize + 1
-    : 0;
-  const quotePageEnd = Math.min(quotePage * quotePageSize, filteredQuotes.length);
+  const quoteViewModels = useMemo(
+    () =>
+      buildQuoteWorkbenchViewModels({
+        quotes,
+        customers
+      }),
+    [customers, quotes]
+  );
+  const filteredQuotes = useMemo(
+    () => filterQuoteWorkbenchViewModels(quoteViewModels, quoteWorkbenchFilters),
+    [quoteViewModels, quoteWorkbenchFilters]
+  );
+  const quotePagination = useMemo(
+    () =>
+      buildQuoteWorkbenchPagination({
+        totalItems: filteredQuotes.length,
+        page: quotePage,
+        pageSize: quoteWorkbenchPageSize
+      }),
+    [filteredQuotes.length, quotePage]
+  );
+  const paginatedQuotes = useMemo(
+    () =>
+      paginateQuoteWorkbenchViewModels({
+        quotes: filteredQuotes,
+        pagination: quotePagination
+      }),
+    [filteredQuotes, quotePagination]
+  );
+  const quoteWorkbenchSummary = useMemo(
+    () =>
+      buildQuoteWorkbenchSummary({
+        allQuotes: quoteViewModels,
+        visibleQuotes: filteredQuotes
+      }),
+    [filteredQuotes, quoteViewModels]
+  );
+  const quoteWorkbenchRecommendations = useMemo(
+    () =>
+      buildQuoteWorkbenchRecommendations({
+        summary: quoteWorkbenchSummary,
+        filters: quoteWorkbenchFilters
+      }),
+    [quoteWorkbenchFilters, quoteWorkbenchSummary]
+  );
+  const hasQuoteWorkbenchFilters =
+    hasActiveQuoteWorkbenchFilters(quoteWorkbenchFilters);
   const currentVersionDetail = useMemo(() => {
     if (!selectedQuoteDetail) {
       return null;
@@ -375,21 +416,21 @@ export default function QuotesPage() {
     return () => {
       window.clearTimeout(resetQuotePageTimeout);
     };
-  }, [quoteSearch, quoteStatusFilter]);
+  }, [quoteWorkbenchFilters]);
 
   useEffect(() => {
-    if (quotePage <= quoteTotalPages) {
+    if (quotePage <= quotePagination.totalPages) {
       return;
     }
 
     const clampQuotePageTimeout = window.setTimeout(() => {
-      setQuotePage(quoteTotalPages);
+      setQuotePage(quotePagination.totalPages);
     }, 0);
 
     return () => {
       window.clearTimeout(clampQuotePageTimeout);
     };
-  }, [quotePage, quoteTotalPages]);
+  }, [quotePage, quotePagination.totalPages]);
 
   const openQuotePanelRoute = useCallback(
     (quoteId: string): void => {
@@ -575,10 +616,13 @@ export default function QuotesPage() {
   }
 
   function scrollToImportJsonSection(): void {
-    importJsonSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+    setActiveQuoteTab("import");
+    window.setTimeout(() => {
+      importJsonSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }, 0);
   }
 
   async function handleCopyGeneratedAiJson(): Promise<void> {
@@ -608,6 +652,22 @@ export default function QuotesPage() {
     } catch {
       setAiDraftError("Nao foi possivel copiar o JSON gerado.");
     }
+  }
+
+  function handleDownloadQuotesCsv(): void {
+    const csvContent = buildQuoteWorkbenchCsvContent(filteredQuotes);
+    const csvBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8"
+    });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const downloadLink = document.createElement("a");
+
+    downloadLink.href = csvUrl;
+    downloadLink.download = "orcamentos-filtrados.csv";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(csvUrl);
   }
 
   function handleUseAiDraftExample(): void {
@@ -677,6 +737,7 @@ export default function QuotesPage() {
       setHasCopiedAiJson(false);
       setImportResult(null);
       setImportError(null);
+      setActiveQuoteTab("import");
       setImportMessage("Draft de IA convertido em JSON. Revise antes de importar.");
       setAiDraftMessage("Draft gerado e enviado para a área de importação JSON.");
     } catch (draftError: unknown) {
@@ -711,6 +772,7 @@ export default function QuotesPage() {
           : "Draft importado com sucesso."
       );
       await refreshQuotesWorkspace();
+      setActiveQuoteTab("list");
       openQuotePanelRoute(importedQuote.quoteId);
     } catch (importFailure: unknown) {
       setImportError(
@@ -761,6 +823,7 @@ export default function QuotesPage() {
 
       setCreateMessage("Orçamento criado com sucesso.");
       await refreshQuotesWorkspace();
+      setActiveQuoteTab("list");
       openQuotePanelRoute(createdQuote.id);
       handleResetQuoteForm();
     } catch (creationError: unknown) {
@@ -1034,7 +1097,42 @@ export default function QuotesPage() {
 
       <div className="grid gap-5">
         <section className="grid gap-5">
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+          <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-2">
+            <div
+              role="tablist"
+              aria-label="Navegacao de orcamentos"
+              className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"
+            >
+              {quoteWorkspaceTabs.map((tab) => {
+                const isActive = activeQuoteTab === tab.value;
+
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveQuoteTab(tab.value)}
+                    className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
+                      isActive
+                        ? "border-sky-300/35 bg-sky-400/15 text-white shadow-[0_0_30px_rgba(56,189,248,0.12)]"
+                        : "border-transparent bg-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-slate-100"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{tab.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-400">
+                      {tab.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <article
+            hidden={activeQuoteTab !== "create"}
+            className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"
+          >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
@@ -1088,15 +1186,15 @@ export default function QuotesPage() {
                 />
               </label>
 
-              <div className="grid gap-4 md:grid-cols-[1fr_140px]">
-                <label className="grid gap-2 text-sm text-slate-200">
+              <div className="grid max-w-full gap-4 md:grid-cols-[minmax(0,1fr)_minmax(8rem,10rem)]">
+                <label className="grid min-w-0 gap-2 text-sm text-slate-200">
                   <span>Produto</span>
                   <select
                     value={createForm.productId}
                     onChange={(event) =>
                       handleCreateFormFieldChange("productId", event.target.value)
                     }
-                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
                     required
                   >
                     <option value="">Selecione um produto</option>
@@ -1108,7 +1206,7 @@ export default function QuotesPage() {
                   </select>
                 </label>
 
-                <label className="grid gap-2 text-sm text-slate-200">
+                <label className="grid min-w-0 gap-2 text-sm text-slate-200">
                   <span>Quantidade</span>
                   <input
                     type="number"
@@ -1118,7 +1216,7 @@ export default function QuotesPage() {
                     onChange={(event) =>
                       handleCreateFormFieldChange("quantity", event.target.value)
                     }
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
+                    className="w-full min-w-0 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                     required
                   />
                 </label>
@@ -1169,7 +1267,10 @@ export default function QuotesPage() {
             </form>
           </article>
 
-          <article className="rounded-[1.75rem] border border-sky-300/15 bg-slate-950/45 p-6">
+          <article
+            hidden={activeQuoteTab !== "ai"}
+            className="rounded-[1.75rem] border border-sky-300/15 bg-slate-950/45 p-6"
+          >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
@@ -1392,6 +1493,7 @@ export default function QuotesPage() {
 
           <article
             ref={importJsonSectionRef}
+            hidden={activeQuoteTab !== "import"}
             className="scroll-mt-6 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1500,7 +1602,10 @@ export default function QuotesPage() {
             </form>
           </article>
 
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+          <article
+            hidden={activeQuoteTab !== "list"}
+            className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"
+          >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
@@ -1511,13 +1616,18 @@ export default function QuotesPage() {
                 </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[minmax(220px,360px)_180px]">
+              <div className="grid gap-3 md:grid-cols-[minmax(220px,360px)_180px] xl:grid-cols-[minmax(220px,360px)_180px_200px_220px]">
                 <label className="grid gap-2 text-sm text-slate-200">
                   <span>Buscar</span>
                   <input
                     type="search"
-                    value={quoteSearch}
-                    onChange={(event) => setQuoteSearch(event.target.value)}
+                    value={quoteWorkbenchFilters.query}
+                    onChange={(event) =>
+                      setQuoteWorkbenchFilters((currentFilters) => ({
+                        ...currentFilters,
+                        query: event.target.value
+                      }))
+                    }
                     className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
                     placeholder="Titulo, cliente ou versao"
                   />
@@ -1526,33 +1636,127 @@ export default function QuotesPage() {
                 <label className="grid gap-2 text-sm text-slate-200">
                   <span>Status</span>
                   <select
-                    value={quoteStatusFilter}
+                    value={quoteWorkbenchFilters.status}
                     onChange={(event) =>
-                      setQuoteStatusFilter(event.target.value as QuoteStatusFilter)
+                      setQuoteWorkbenchFilters((currentFilters) => ({
+                        ...currentFilters,
+                        status: event.target.value as QuoteStatusFilter
+                      }))
                     }
                     className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
                   >
-                    <option value="all">Todos</option>
-                    <option value="draft">Draft</option>
-                    <option value="published">Publicado</option>
-                    <option value="archived">Arquivado</option>
+                    {quoteStatusFilterOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Valor</span>
+                  <select
+                    value={quoteWorkbenchFilters.valueBand}
+                    onChange={(event) =>
+                      setQuoteWorkbenchFilters((currentFilters) => ({
+                        ...currentFilters,
+                        valueBand: event.target.value as QuoteValueBandFilter
+                      }))
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    {quoteValueBandOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Ordenar</span>
+                  <select
+                    value={quoteWorkbenchFilters.sort}
+                    onChange={(event) =>
+                      setQuoteWorkbenchFilters((currentFilters) => ({
+                        ...currentFilters,
+                        sort: event.target.value as QuoteSortKey
+                      }))
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    {quoteSortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
             </div>
 
-            {quoteSearch || quoteStatusFilter !== "all" ? (
+            <div className="mt-5 grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 lg:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Visiveis
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">
+                  {quoteWorkbenchSummary.visibleQuotes} /{" "}
+                  {quoteWorkbenchSummary.totalQuotes}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Valor visivel
+                </p>
+                <p className="mt-1 text-lg font-semibold text-white">
+                  {formatCurrency(
+                    quoteWorkbenchSummary.totalVisibleCents,
+                    quoteWorkbenchSummary.highestVisibleQuote?.currency ?? "BRL"
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  Pipeline
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-300">
+                  {quoteWorkbenchSummary.draftQuotes} draft(s) |{" "}
+                  {quoteWorkbenchSummary.publishedQuotes} publicado(s) |{" "}
+                  {quoteWorkbenchSummary.archivedQuotes} arquivado(s)
+                </p>
+              </div>
+            </div>
+
+            {quoteWorkbenchRecommendations.length ? (
+              <div className="mt-4 grid gap-2 rounded-2xl border border-sky-300/15 bg-sky-400/10 p-4 text-sm leading-6 text-sky-50">
+                {quoteWorkbenchRecommendations.map((recommendation) => (
+                  <p key={recommendation}>{recommendation}</p>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {hasQuoteWorkbenchFilters ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setQuoteWorkbenchFilters(getDefaultQuoteWorkbenchFilters())
+                  }
+                  className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                >
+                  Limpar filtros
+                </button>
+              ) : null}
               <button
                 type="button"
-                onClick={() => {
-                  setQuoteSearch("");
-                  setQuoteStatusFilter("all");
-                }}
-                className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                onClick={handleDownloadQuotesCsv}
+                disabled={!filteredQuotes.length}
+                className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Limpar filtros
+                Baixar CSV filtrado
               </button>
-            ) : null}
+            </div>
             <div className="mt-6 grid gap-3">
               {isLoadingBootstrap ? (
                 [0, 1, 2].map((item) => (
@@ -1564,7 +1768,6 @@ export default function QuotesPage() {
               ) : paginatedQuotes.length ? (
                 paginatedQuotes.map((quote) => {
                   const isSelected = quote.id === selectedQuoteId;
-                  const customer = customerMap.get(quote.customerId);
 
                   return (
                     <button
@@ -1584,21 +1787,21 @@ export default function QuotesPage() {
                             {quote.title}
                           </p>
                           <p className="mt-1 text-sm text-slate-300">
-                            {customer?.name ?? "Cliente não carregado"}
+                            {quote.customerName}
                           </p>
                           <p className="mt-1 text-sm text-slate-400">
-                            Versão atual: {quote.currentVersion.versionNumber}
+                            {quote.versionLabel}
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-slate-400">
+                            {quote.insight}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-[var(--accent)]">
-                            {formatCurrency(
-                              quote.currentVersion.totalCents,
-                              quote.currentVersion.currency
-                            )}
+                            {formatCurrency(quote.totalCents, quote.currency)}
                           </p>
                           <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">
-                            {formatStatus(quote.status)}
+                            {quote.statusLabel}
                           </p>
                         </div>
                       </div>
@@ -1615,10 +1818,10 @@ export default function QuotesPage() {
                 </div>
               )}
             </div>
-            {filteredQuotes.length > quotePageSize ? (
+            {filteredQuotes.length > quoteWorkbenchPageSize ? (
               <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
                 <p>
-                  Mostrando {quotePageStart}-{quotePageEnd} de{" "}
+                  Mostrando {quotePagination.startItem}-{quotePagination.endItem} de{" "}
                   {filteredQuotes.length} orcamento(s).
                 </p>
 
@@ -1628,22 +1831,22 @@ export default function QuotesPage() {
                     onClick={() =>
                       setQuotePage((currentPage) => Math.max(1, currentPage - 1))
                     }
-                    disabled={quotePage <= 1}
+                    disabled={!quotePagination.hasPreviousPage}
                     className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Anterior
                   </button>
                   <span className="inline-flex rounded-full border border-white/10 bg-[#0c1526] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-sky-200">
-                    {quotePage}/{quoteTotalPages}
+                    {quotePagination.page}/{quotePagination.totalPages}
                   </span>
                   <button
                     type="button"
                     onClick={() =>
                       setQuotePage((currentPage) =>
-                        Math.min(quoteTotalPages, currentPage + 1)
+                        Math.min(quotePagination.totalPages, currentPage + 1)
                       )
                     }
-                    disabled={quotePage >= quoteTotalPages}
+                    disabled={!quotePagination.hasNextPage}
                     className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Proxima

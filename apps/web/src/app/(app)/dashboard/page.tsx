@@ -57,6 +57,30 @@ const nextActions = [
   "Publicar ou revogar link compartilhado"
 ];
 
+type DashboardWorkspaceTab = "commercial" | "operations" | "audit";
+
+const dashboardWorkspaceTabs: Array<{
+  value: DashboardWorkspaceTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "commercial",
+    label: "Visao comercial",
+    description: "Produtos mais usados e movimentacoes recentes."
+  },
+  {
+    value: "operations",
+    label: "Operacao rapida",
+    description: "Acoes recomendadas e leitura executiva do tenant."
+  },
+  {
+    value: "audit",
+    label: "Auditoria",
+    description: "Eventos sensiveis, filtros e exportacao CSV."
+  }
+];
+
 /**
  * Formata contagens do dashboard para leitura rápida na interface.
  */
@@ -92,6 +116,8 @@ function formatStatus(value: "draft" | "published" | "archived"): string {
 
 export default function DashboardPage() {
   const { accessToken, roles } = useAuthContext();
+  const [activeDashboardTab, setActiveDashboardTab] =
+    useState<DashboardWorkspaceTab>("commercial");
   const [auditFilters, setAuditFilters] = useState(getDefaultAuditWorkbenchFilters);
   const { summary, isLoading, error, loadDashboardSummary } =
     useDashboard(accessToken);
@@ -102,6 +128,17 @@ export default function DashboardPage() {
     loadRecentAuditEvents
   } = useAudit(accessToken);
   const canReadAudit = roles.some((role) => role === "owner" || role === "admin");
+  const visibleDashboardTabs = useMemo(
+    () =>
+      dashboardWorkspaceTabs.filter(
+        (tab) => tab.value !== "audit" || canReadAudit
+      ),
+    [canReadAudit]
+  );
+  const currentDashboardTab =
+    !canReadAudit && activeDashboardTab === "audit"
+      ? "commercial"
+      : activeDashboardTab;
   const auditEventViewModels = useMemo(
     () => buildAuditEventViewModels(auditEvents),
     [auditEvents]
@@ -200,7 +237,7 @@ export default function DashboardPage() {
         />
       ) : null}
 
-      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.45fr)_360px]">
+      <div className="grid gap-5">
         <section className="grid gap-5">
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
             {metricCards.map((card) => (
@@ -213,6 +250,55 @@ export default function DashboardPage() {
             ))}
           </div>
 
+          <Surface as="div" variant="default" className="p-2">
+            <div
+              role="tablist"
+              aria-label="Navegacao do dashboard"
+              className="grid gap-2 md:grid-cols-3"
+            >
+              {visibleDashboardTabs.map((tab) => {
+                const isActive = currentDashboardTab === tab.value;
+                const count =
+                  tab.value === "commercial"
+                    ? summary?.recentQuotes.length ?? 0
+                    : tab.value === "operations"
+                      ? nextActions.length
+                      : auditWorkbenchSummary.visibleEvents;
+
+                return (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setActiveDashboardTab(tab.value)}
+                    className={classNames(
+                      "rounded-[1.35rem] border px-4 py-3 text-left transition",
+                      isActive
+                        ? "border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.12))] text-[var(--foreground-strong)]"
+                        : "border-transparent bg-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    <span className="flex items-center justify-between gap-3 text-sm font-semibold">
+                      {tab.label}
+                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 font-mono text-[11px] text-[var(--accent)]">
+                        {formatMetric(count)}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
+                      {tab.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Surface>
+        </section>
+
+        <section
+          hidden={currentDashboardTab !== "commercial"}
+          className="grid gap-5"
+        >
           <Surface as="article" variant="default" className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -348,7 +434,10 @@ export default function DashboardPage() {
           </Surface>
         </section>
 
-        <aside className="grid gap-5">
+        <section
+          hidden={currentDashboardTab !== "operations"}
+          className="grid gap-5 2xl:grid-cols-[0.9fr_1.1fr]"
+        >
           <Surface as="article" variant="default" className="p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
               Próximas ações
@@ -424,6 +513,9 @@ export default function DashboardPage() {
             </div>
           </Surface>
 
+        </section>
+
+        <section hidden={currentDashboardTab !== "audit"} className="grid gap-5">
           {canReadAudit ? (
             <Surface as="article" variant="default" className="p-6">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -674,7 +766,7 @@ export default function DashboardPage() {
               )}
             </Surface>
           ) : null}
-        </aside>
+        </section>
       </div>
     </div>
   );

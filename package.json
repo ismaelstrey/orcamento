@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "corepack pnpm --filter web dev",
     "build": "corepack pnpm -r --if-present build",
+    "start": "corepack pnpm --dir apps/web exec next start",
     "lint": "corepack pnpm --filter web lint",
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "test": "corepack pnpm -r --if-present test",

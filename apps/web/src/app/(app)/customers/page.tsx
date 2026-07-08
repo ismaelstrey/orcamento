@@ -25,6 +25,25 @@ interface CustomerFormValues {
   notes: string;
 }
 
+type CustomerWorkspaceTab = "list" | "form";
+
+const customerWorkspaceTabs: Array<{
+  value: CustomerWorkspaceTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "list",
+    label: "Lista de clientes",
+    description: "Pesquise, selecione e acompanhe a base comercial."
+  },
+  {
+    value: "form",
+    label: "Cadastro e edicao",
+    description: "Crie ou atualize o cliente ativo com mais foco."
+  }
+];
+
 const initialFormValues: CustomerFormValues = {
   name: "",
   email: "",
@@ -73,6 +92,8 @@ export default function CustomersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [activeCustomerTab, setActiveCustomerTab] =
+    useState<CustomerWorkspaceTab>("list");
   const [formValues, setFormValues] = useState<CustomerFormValues>(initialFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -118,6 +139,7 @@ export default function CustomersPage() {
       const customer = await getCustomerById(customerId);
       setSelectedCustomerId(customer.id);
       setFormValues(mapCustomerToFormValues(customer));
+      setActiveCustomerTab("form");
     } catch (selectionError: unknown) {
       setSubmitError(
         selectionError instanceof Error
@@ -134,6 +156,7 @@ export default function CustomersPage() {
     setFormValues(initialFormValues);
     setSubmitMessage(null);
     setSubmitError(null);
+    setActiveCustomerTab("form");
   }
 
   function handleFormFieldChange(
@@ -181,6 +204,7 @@ export default function CustomersPage() {
         setSubmitMessage("Cliente atualizado com sucesso.");
         await refreshCustomers(page);
         await handleSelectCustomer(updatedCustomer.id);
+        setActiveCustomerTab("list");
       } else {
         const createdCustomer = await createCustomer(
           payloadBase as CreateCustomerRequest
@@ -191,6 +215,7 @@ export default function CustomersPage() {
         setAppliedSearch("");
         setSearchInput("");
         await handleSelectCustomer(createdCustomer.id);
+        setActiveCustomerTab("list");
       }
     } catch (submissionError: unknown) {
       setSubmitError(
@@ -224,8 +249,46 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1.18fr)_430px]">
-        <section className="grid gap-5">
+      <div className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-2">
+        <div
+          role="tablist"
+          aria-label="Navegacao de clientes"
+          className="grid gap-2 md:grid-cols-2"
+        >
+          {customerWorkspaceTabs.map((tab) => {
+            const isActive = activeCustomerTab === tab.value;
+            const count = tab.value === "list" ? total : selectedCustomerId ? 1 : 0;
+
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveCustomerTab(tab.value)}
+                className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
+                  isActive
+                    ? "border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.12))] text-[var(--foreground-strong)]"
+                    : "border-transparent bg-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                <span className="flex items-center justify-between gap-3 text-sm font-semibold">
+                  {tab.label}
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 font-mono text-[11px] text-[var(--accent)]">
+                    {count}
+                  </span>
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
+                  {tab.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-5">
+        <section hidden={activeCustomerTab !== "list"} className="grid gap-5">
           <Surface as="article" variant="default" className="p-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
@@ -312,7 +375,7 @@ export default function CustomersPage() {
               ) : (
                 <EmptyState
                   title="Nenhum cliente encontrado para os filtros atuais."
-                  description="Ajuste a busca ou cadastre um novo cliente ao lado."
+                  description="Ajuste a busca ou abra a aba de cadastro para criar um novo cliente."
                 />
               )}
             </div>
@@ -341,7 +404,7 @@ export default function CustomersPage() {
           </Surface>
         </section>
 
-        <aside className="grid gap-5">
+        <section hidden={activeCustomerTab !== "form"} className="grid gap-5">
           <Surface as="article" variant="default" className="p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
               {formTitle}
@@ -454,10 +517,17 @@ export default function CustomersPage() {
                 <Button variant="secondary" size="lg" onClick={handleResetForm}>
                   Limpar formulario
                 </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={() => setActiveCustomerTab("list")}
+                >
+                  Voltar para lista
+                </Button>
               </div>
             </form>
           </Surface>
-        </aside>
+        </section>
       </div>
     </div>
   );
