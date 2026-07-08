@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/emptyState";
@@ -12,12 +12,19 @@ import { Surface } from "@/components/ui/surface";
 import { useAudit } from "@/hooks/useAudit";
 import { useDashboard } from "@/hooks/useDashboard";
 import {
-  compactAuditPayloadSummary,
-  formatAuditActionLabel,
-  formatAuditEventInsight,
-  formatAuditEntityLabel,
-  getAuditActionTone
-} from "@/lib/audit/presenter";
+  auditDomainOptions,
+  auditToneOptions,
+  buildAuditCsvContent,
+  buildAuditEventViewModels,
+  buildAuditTimelineGroups,
+  buildAuditWorkbenchSummary,
+  buildAuditWorkbenchRecommendations,
+  filterAuditEventViewModels,
+  getDefaultAuditWorkbenchFilters,
+  hasActiveAuditWorkbenchFilters,
+  type AuditDomainFilter,
+  type AuditToneFilter
+} from "@/lib/audit/workbench";
 import { classNames } from "@/lib/utils/classNames";
 
 const metricCards = [
@@ -85,6 +92,7 @@ function formatStatus(value: "draft" | "published" | "archived"): string {
 
 export default function DashboardPage() {
   const { accessToken, roles } = useAuthContext();
+  const [auditFilters, setAuditFilters] = useState(getDefaultAuditWorkbenchFilters);
   const { summary, isLoading, error, loadDashboardSummary } =
     useDashboard(accessToken);
   const {
@@ -94,6 +102,51 @@ export default function DashboardPage() {
     loadRecentAuditEvents
   } = useAudit(accessToken);
   const canReadAudit = roles.some((role) => role === "owner" || role === "admin");
+  const auditEventViewModels = useMemo(
+    () => buildAuditEventViewModels(auditEvents),
+    [auditEvents]
+  );
+  const filteredAuditEvents = useMemo(
+    () => filterAuditEventViewModels(auditEventViewModels, auditFilters),
+    [auditEventViewModels, auditFilters]
+  );
+  const auditWorkbenchSummary = useMemo(
+    () =>
+      buildAuditWorkbenchSummary({
+        allEvents: auditEventViewModels,
+        visibleEvents: filteredAuditEvents
+      }),
+    [auditEventViewModels, filteredAuditEvents]
+  );
+  const auditTimelineGroups = useMemo(
+    () => buildAuditTimelineGroups(filteredAuditEvents),
+    [filteredAuditEvents]
+  );
+  const auditRecommendations = useMemo(
+    () =>
+      buildAuditWorkbenchRecommendations({
+        summary: auditWorkbenchSummary,
+        filters: auditFilters
+      }),
+    [auditFilters, auditWorkbenchSummary]
+  );
+  const hasAuditFilters = hasActiveAuditWorkbenchFilters(auditFilters);
+
+  function handleDownloadAuditCsv(): void {
+    const csvContent = buildAuditCsvContent(filteredAuditEvents);
+    const csvBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8"
+    });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const downloadLink = document.createElement("a");
+
+    downloadLink.href = csvUrl;
+    downloadLink.download = "auditoria-recente.csv";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(csvUrl);
+  }
 
   useEffect(() => {
     void loadDashboardSummary();
@@ -397,6 +450,125 @@ export default function DashboardPage() {
                 </div>
               ) : null}
 
+              <div className="mt-5 grid gap-4 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
+                <div className="grid gap-3">
+                  <label className="grid gap-2 text-sm text-[var(--muted)]">
+                    <span>Buscar na auditoria</span>
+                    <input
+                      value={auditFilters.query}
+                      onChange={(event) =>
+                        setAuditFilters((currentFilters) => ({
+                          ...currentFilters,
+                          query: event.target.value
+                        }))
+                      }
+                      className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-2 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)] focus:border-[var(--accent)]/50"
+                      placeholder="Provider, slug, usuario, versao..."
+                    />
+                  </label>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                      Dominio
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {auditDomainOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setAuditFilters((currentFilters) => ({
+                              ...currentFilters,
+                              domain: option.value as AuditDomainFilter
+                            }))
+                          }
+                          className={classNames(
+                            "rounded-full border px-3 py-1.5 text-xs transition",
+                            auditFilters.domain === option.value
+                              ? "border-[var(--accent)]/40 bg-[var(--accent)]/10 text-[var(--accent)]"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]/30 hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                      Tom
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {auditToneOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() =>
+                            setAuditFilters((currentFilters) => ({
+                              ...currentFilters,
+                              tone: option.value as AuditToneFilter
+                            }))
+                          }
+                          className={classNames(
+                            "rounded-full border px-3 py-1.5 text-xs transition",
+                            auditFilters.tone === option.value
+                              ? "border-[var(--accent)]/40 bg-[var(--accent)]/10 text-[var(--accent)]"
+                              : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)]/30 hover:text-[var(--foreground)]"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
+                  <span>
+                    {formatMetric(auditWorkbenchSummary.visibleEvents)} de{" "}
+                    {formatMetric(auditWorkbenchSummary.totalEvents)} evento(s)
+                  </span>
+                  <span>
+                    IA {formatMetric(auditWorkbenchSummary.aiEvents)} | Links{" "}
+                    {formatMetric(auditWorkbenchSummary.sharingEvents)} | Alertas{" "}
+                    {formatMetric(auditWorkbenchSummary.warningEvents)}
+                  </span>
+                </div>
+
+                {auditRecommendations.length ? (
+                  <div className="grid gap-2 rounded-[1rem] border border-[var(--border)] bg-[var(--surface-elevated)] p-3">
+                    <p className="text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                      Recomendações
+                    </p>
+                    <ul className="grid gap-2 text-sm leading-6 text-[var(--foreground)]">
+                      {auditRecommendations.map((recommendation) => (
+                        <li key={recommendation}>{recommendation}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
+                {hasAuditFilters ? (
+                  <button
+                    type="button"
+                    onClick={() => setAuditFilters(getDefaultAuditWorkbenchFilters())}
+                    className="w-fit rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--accent)]/30 hover:text-[var(--foreground)]"
+                  >
+                    Limpar filtros
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={handleDownloadAuditCsv}
+                  disabled={!filteredAuditEvents.length}
+                  className="w-fit rounded-full border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--muted)] transition hover:border-[var(--accent)]/30 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Baixar CSV filtrado
+                </button>
+              </div>
+
               {isLoadingAudit ? (
                 <div className="mt-5 grid gap-3">
                   {[0, 1, 2].map((item) => (
@@ -406,87 +578,97 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
-              ) : auditEvents.length ? (
-                <div className="mt-5 grid gap-3">
-                  {auditEvents.map((event) => {
-                    const tone = getAuditActionTone(event.action);
-                    const compactPayloadSummary = compactAuditPayloadSummary(
-                      event.payloadSummary
-                    );
-                    const auditEventInsight = formatAuditEventInsight({
-                      action: event.action,
-                      payloadSummary: event.payloadSummary
-                    });
-
-                    return (
-                      <Surface
-                        key={event.id}
-                        as="div"
-                        variant="subtle"
-                        className={classNames(
-                          "rounded-[1.2rem] p-4",
-                          tone === "success" &&
-                            "border-[color:rgba(52,211,153,0.24)]",
-                          tone === "warning" &&
-                            "border-[color:rgba(250,204,21,0.24)]"
-                        )}
-                      >
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-[var(--foreground-strong)]">
-                            {formatAuditActionLabel(event.action)}
-                          </p>
-                          <span
-                            className={classNames(
-                              "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]",
-                              tone === "success"
-                                ? "border-emerald-300/20 text-emerald-200"
-                                : tone === "warning"
-                                  ? "border-amber-300/20 text-amber-200"
-                                  : "border-[var(--border)] text-[var(--muted)]"
-                            )}
-                          >
-                            {formatAuditEntityLabel(event.entityType)}
-                          </span>
-                        </div>
-                        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                          {formatDate(event.createdAt)}
-                        </p>
-                        <p className="mt-2 truncate text-sm text-[var(--muted)]">
-                          {event.actorUserName ??
-                            event.actorUserEmail ??
-                            "Sistema ou usuario nao vinculado"}
-                        </p>
-                        {auditEventInsight ? (
-                          <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
-                            {auditEventInsight}
-                          </p>
-                        ) : null}
-                        {compactPayloadSummary.visibleItems.length ? (
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {compactPayloadSummary.visibleItems.map((summaryItem) => (
-                              <span
-                                key={summaryItem}
-                                className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]"
-                              >
-                                {summaryItem}
-                              </span>
-                            ))}
-                            {compactPayloadSummary.hiddenCount > 0 ? (
-                              <span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]">
-                                +{compactPayloadSummary.hiddenCount} detalhe(s)
-                              </span>
-                            ) : null}
+              ) : filteredAuditEvents.length ? (
+                <div className="mt-5 grid gap-4">
+                  {auditTimelineGroups.map((group) => (
+                    <div key={group.key} className="grid gap-3">
+                      <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                        {group.label}
+                      </p>
+                      {group.events.map((event) => (
+                        <Surface
+                          key={event.id}
+                          as="div"
+                          variant="subtle"
+                          className={classNames(
+                            "rounded-[1.2rem] p-4",
+                            event.tone === "success" &&
+                              "border-[color:rgba(52,211,153,0.24)]",
+                            event.tone === "warning" &&
+                              "border-[color:rgba(250,204,21,0.24)]"
+                          )}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <p className="text-sm font-medium text-[var(--foreground-strong)]">
+                              {event.actionLabel}
+                            </p>
+                            <span
+                              className={classNames(
+                                "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]",
+                                event.tone === "success"
+                                  ? "border-emerald-300/20 text-emerald-200"
+                                  : event.tone === "warning"
+                                    ? "border-amber-300/20 text-amber-200"
+                                    : "border-[var(--border)] text-[var(--muted)]"
+                              )}
+                            >
+                              {event.entityLabel}
+                            </span>
                           </div>
-                        ) : null}
-                      </Surface>
-                    );
-                  })}
+                          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                            {formatDate(event.createdAt)}
+                          </p>
+                          <p className="mt-2 truncate text-sm text-[var(--muted)]">
+                            {event.actorLabel}
+                          </p>
+                          {event.insight ? (
+                            <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+                              {event.insight}
+                            </p>
+                          ) : null}
+                          {event.contextHref && event.contextLabel ? (
+                            <Link
+                              href={event.contextHref}
+                              className="mt-3 inline-flex rounded-full border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] transition hover:border-[var(--accent)]/40 hover:text-[var(--accent)]"
+                            >
+                              {event.contextLabel}
+                            </Link>
+                          ) : null}
+                          {event.visiblePayloadSummary.length ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {event.visiblePayloadSummary.map((summaryItem) => (
+                                <span
+                                  key={summaryItem}
+                                  className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]"
+                                >
+                                  {summaryItem}
+                                </span>
+                              ))}
+                              {event.hiddenPayloadSummaryCount > 0 ? (
+                                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]">
+                                  +{event.hiddenPayloadSummaryCount} detalhe(s)
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </Surface>
+                      ))}
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="mt-5">
                   <EmptyState
-                    title="Nenhum evento recente."
-                    description="Acoes sensiveis aparecerao aqui conforme o uso do tenant."
+                    title={
+                      hasAuditFilters
+                        ? "Nenhum evento encontrado para os filtros atuais."
+                        : "Nenhum evento recente."
+                    }
+                    description={
+                      hasAuditFilters
+                        ? "Limpe os filtros ou ajuste a busca para ampliar a leitura."
+                        : "Acoes sensiveis aparecerao aqui conforme o uso do tenant."
+                    }
                   />
                 </div>
               )}
