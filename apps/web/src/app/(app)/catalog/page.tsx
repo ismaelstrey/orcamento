@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
+import { WorkspaceTabs, type WorkspaceTabOption } from "@/components/ui/workspaceTabs";
 import { useCatalog } from "@/hooks/useCatalog";
+import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
 import type {
   BrandResponse,
   CategoryResponse,
@@ -30,6 +32,8 @@ interface ProductFormValues {
 }
 
 type CatalogWorkspaceTab = "products" | "categories" | "brands";
+
+const catalogWorkspaceTabValues = ["products", "categories", "brands"] as const;
 
 const catalogWorkspaceTabs: Array<{
   value: CatalogWorkspaceTab;
@@ -163,7 +167,10 @@ export default function CatalogPage() {
   );
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [activeCatalogTab, setActiveCatalogTab] =
-    useState<CatalogWorkspaceTab>("products");
+    useWorkspaceTabUrlState<CatalogWorkspaceTab>({
+      defaultValue: "products",
+      values: catalogWorkspaceTabValues
+    });
   const [productSearch, setProductSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(false);
@@ -218,6 +225,19 @@ export default function CatalogPage() {
   }, [brandMap, categoryMap, productCategoryFilter, productSearch, products]);
   const hasProductFilters =
     productSearch.trim().length > 0 || productCategoryFilter !== "all";
+  const catalogTabsWithCounts = useMemo<Array<WorkspaceTabOption<CatalogWorkspaceTab>>>(
+    () =>
+      catalogWorkspaceTabs.map((tab) => ({
+        ...tab,
+        count:
+          tab.value === "products"
+            ? products.length
+            : tab.value === "categories"
+              ? categories.length
+              : brands.length
+      })),
+    [brands.length, categories.length, products.length]
+  );
 
   const refreshCatalog = useCallback(async () => {
     setIsLoading(true);
@@ -449,48 +469,13 @@ export default function CatalogPage() {
         </section>
       ) : null}
 
-      <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-2">
-        <div
-          role="tablist"
-          aria-label="Navegacao do catalogo"
-          className="grid gap-2 md:grid-cols-3"
-        >
-          {catalogWorkspaceTabs.map((tab) => {
-            const isActive = activeCatalogTab === tab.value;
-            const count =
-              tab.value === "products"
-                ? products.length
-                : tab.value === "categories"
-                  ? categories.length
-                  : brands.length;
-
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveCatalogTab(tab.value)}
-                className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
-                  isActive
-                    ? "border-sky-300/35 bg-sky-400/15 text-white shadow-[0_0_30px_rgba(56,189,248,0.12)]"
-                    : "border-transparent bg-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-slate-100"
-                }`}
-              >
-                <span className="flex items-center justify-between gap-3 text-sm font-semibold">
-                  {tab.label}
-                  <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 font-mono text-[11px] text-sky-100">
-                    {count}
-                  </span>
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-slate-400">
-                  {tab.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <WorkspaceTabs
+        activeValue={activeCatalogTab}
+        ariaLabel="Navegacao do catalogo"
+        columnsClassName="md:grid-cols-3"
+        onChange={setActiveCatalogTab}
+        options={catalogTabsWithCounts}
+      />
 
       <div className="grid gap-5">
         <section

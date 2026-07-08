@@ -10,7 +10,12 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/pageHeader";
 import { Surface } from "@/components/ui/surface";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  WorkspaceTabs,
+  type WorkspaceTabOption
+} from "@/components/ui/workspaceTabs";
 import { useCustomers } from "@/hooks/useCustomers";
+import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
 import type {
   CreateCustomerRequest,
   CustomerResponse,
@@ -26,6 +31,8 @@ interface CustomerFormValues {
 }
 
 type CustomerWorkspaceTab = "list" | "form";
+
+const customerWorkspaceTabValues = ["list", "form"] as const;
 
 const customerWorkspaceTabs: Array<{
   value: CustomerWorkspaceTab;
@@ -93,7 +100,10 @@ export default function CustomersPage() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [activeCustomerTab, setActiveCustomerTab] =
-    useState<CustomerWorkspaceTab>("list");
+    useWorkspaceTabUrlState<CustomerWorkspaceTab>({
+      defaultValue: "list",
+      values: customerWorkspaceTabValues
+    });
   const [formValues, setFormValues] = useState<CustomerFormValues>(initialFormValues);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -108,6 +118,17 @@ export default function CustomersPage() {
   const formDescription = selectedCustomerId
     ? "Atualize os dados do cliente selecionado sem perder o vínculo com o tenant."
     : "Cadastre um novo cliente para usar nos próximos orçamentos.";
+
+  const customerTabsWithCounts = useMemo<
+    Array<WorkspaceTabOption<CustomerWorkspaceTab>>
+  >(
+    () =>
+      customerWorkspaceTabs.map((tab) => ({
+        ...tab,
+        count: tab.value === "list" ? total : selectedCustomerId ? 1 : 0
+      })),
+    [selectedCustomerId, total]
+  );
 
   /**
    * Recarrega a listagem de clientes considerando paginação e busca ativa.
@@ -249,43 +270,13 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="rounded-[1.75rem] border border-[var(--border)] bg-[var(--surface)] p-2">
-        <div
-          role="tablist"
-          aria-label="Navegacao de clientes"
-          className="grid gap-2 md:grid-cols-2"
-        >
-          {customerWorkspaceTabs.map((tab) => {
-            const isActive = activeCustomerTab === tab.value;
-            const count = tab.value === "list" ? total : selectedCustomerId ? 1 : 0;
-
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveCustomerTab(tab.value)}
-                className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
-                  isActive
-                    ? "border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.12))] text-[var(--foreground-strong)]"
-                    : "border-transparent bg-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
-                }`}
-              >
-                <span className="flex items-center justify-between gap-3 text-sm font-semibold">
-                  {tab.label}
-                  <span className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 font-mono text-[11px] text-[var(--accent)]">
-                    {count}
-                  </span>
-                </span>
-                <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
-                  {tab.description}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <WorkspaceTabs
+        activeValue={activeCustomerTab}
+        ariaLabel="Navegacao de clientes"
+        columnsClassName="md:grid-cols-2"
+        onChange={setActiveCustomerTab}
+        options={customerTabsWithCounts}
+      />
 
       <div className="grid gap-5">
         <section hidden={activeCustomerTab !== "list"} className="grid gap-5">

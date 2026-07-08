@@ -9,8 +9,13 @@ import { FeedbackBanner } from "@/components/ui/feedbackBanner";
 import { PageHeader } from "@/components/ui/pageHeader";
 import { StatCard } from "@/components/ui/statCard";
 import { Surface } from "@/components/ui/surface";
+import {
+  WorkspaceTabs,
+  type WorkspaceTabOption
+} from "@/components/ui/workspaceTabs";
 import { useAudit } from "@/hooks/useAudit";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
 import {
   auditDomainOptions,
   auditToneOptions,
@@ -58,6 +63,8 @@ const nextActions = [
 ];
 
 type DashboardWorkspaceTab = "commercial" | "operations" | "audit";
+
+const dashboardWorkspaceTabValues = ["commercial", "operations", "audit"] as const;
 
 const dashboardWorkspaceTabs: Array<{
   value: DashboardWorkspaceTab;
@@ -117,7 +124,10 @@ function formatStatus(value: "draft" | "published" | "archived"): string {
 export default function DashboardPage() {
   const { accessToken, roles } = useAuthContext();
   const [activeDashboardTab, setActiveDashboardTab] =
-    useState<DashboardWorkspaceTab>("commercial");
+    useWorkspaceTabUrlState<DashboardWorkspaceTab>({
+      defaultValue: "commercial",
+      values: dashboardWorkspaceTabValues
+    });
   const [auditFilters, setAuditFilters] = useState(getDefaultAuditWorkbenchFilters);
   const { summary, isLoading, error, loadDashboardSummary } =
     useDashboard(accessToken);
@@ -168,6 +178,17 @@ export default function DashboardPage() {
     [auditFilters, auditWorkbenchSummary]
   );
   const hasAuditFilters = hasActiveAuditWorkbenchFilters(auditFilters);
+  const dashboardTabsWithCounts: Array<
+    WorkspaceTabOption<DashboardWorkspaceTab>
+  > = visibleDashboardTabs.map((tab) => ({
+    ...tab,
+    count:
+      tab.value === "commercial"
+        ? formatMetric(summary?.recentQuotes.length ?? 0)
+        : tab.value === "operations"
+          ? formatMetric(nextActions.length)
+          : formatMetric(auditWorkbenchSummary.visibleEvents)
+  }));
 
   function handleDownloadAuditCsv(): void {
     const csvContent = buildAuditCsvContent(filteredAuditEvents);
@@ -250,49 +271,13 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          <Surface as="div" variant="default" className="p-2">
-            <div
-              role="tablist"
-              aria-label="Navegacao do dashboard"
-              className="grid gap-2 md:grid-cols-3"
-            >
-              {visibleDashboardTabs.map((tab) => {
-                const isActive = currentDashboardTab === tab.value;
-                const count =
-                  tab.value === "commercial"
-                    ? summary?.recentQuotes.length ?? 0
-                    : tab.value === "operations"
-                      ? nextActions.length
-                      : auditWorkbenchSummary.visibleEvents;
-
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveDashboardTab(tab.value)}
-                    className={classNames(
-                      "rounded-[1.35rem] border px-4 py-3 text-left transition",
-                      isActive
-                        ? "border-[var(--border-strong)] bg-[linear-gradient(135deg,rgba(56,189,248,0.18),rgba(99,102,241,0.12))] text-[var(--foreground-strong)]"
-                        : "border-transparent bg-transparent text-[var(--muted)] hover:border-[var(--border)] hover:bg-[var(--surface-secondary)] hover:text-[var(--foreground)]"
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-3 text-sm font-semibold">
-                      {tab.label}
-                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-2 py-0.5 font-mono text-[11px] text-[var(--accent)]">
-                        {formatMetric(count)}
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[var(--muted)]">
-                      {tab.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Surface>
+          <WorkspaceTabs
+            activeValue={currentDashboardTab}
+            ariaLabel="Navegacao do dashboard"
+            columnsClassName="md:grid-cols-3"
+            onChange={setActiveDashboardTab}
+            options={dashboardTabsWithCounts}
+          />
         </section>
 
         <section

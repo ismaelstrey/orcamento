@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
+import { WorkspaceTabs } from "@/components/ui/workspaceTabs";
 import { useAiQuoteDraft } from "@/hooks/useAiQuoteDraft";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useQuotes } from "@/hooks/useQuotes";
+import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
 import type { QuoteDraftProviderCapabilities } from "@/lib/ai/providers";
 import type { QuoteDraftFallbackReview } from "@/lib/ai/service";
 import type { CustomerResponse } from "@/lib/customers/schemas";
@@ -72,6 +74,8 @@ interface QuoteAiDraftFormValues {
 }
 
 type QuoteWorkspaceTab = "list" | "import" | "ai" | "create";
+
+const quoteWorkspaceTabValues = ["list", "import", "ai", "create"] as const;
 
 const quoteWorkspaceTabs: Array<{
   value: QuoteWorkspaceTab;
@@ -226,7 +230,10 @@ export default function QuotesPage() {
   const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
   const [hasCopiedAiJson, setHasCopiedAiJson] = useState(false);
   const [activeQuoteTab, setActiveQuoteTab] =
-    useState<QuoteWorkspaceTab>("list");
+    useWorkspaceTabUrlState<QuoteWorkspaceTab>({
+      defaultValue: "list",
+      values: quoteWorkspaceTabValues
+    });
   const [quoteWorkbenchFilters, setQuoteWorkbenchFilters] = useState(
     getDefaultQuoteWorkbenchFilters
   );
@@ -1097,37 +1104,13 @@ export default function QuotesPage() {
 
       <div className="grid gap-5">
         <section className="grid gap-5">
-          <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-2">
-            <div
-              role="tablist"
-              aria-label="Navegacao de orcamentos"
-              className="grid gap-2 md:grid-cols-2 xl:grid-cols-4"
-            >
-              {quoteWorkspaceTabs.map((tab) => {
-                const isActive = activeQuoteTab === tab.value;
-
-                return (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveQuoteTab(tab.value)}
-                    className={`rounded-[1.35rem] border px-4 py-3 text-left transition ${
-                      isActive
-                        ? "border-sky-300/35 bg-sky-400/15 text-white shadow-[0_0_30px_rgba(56,189,248,0.12)]"
-                        : "border-transparent bg-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-slate-100"
-                    }`}
-                  >
-                    <span className="block text-sm font-semibold">{tab.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-400">
-                      {tab.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <WorkspaceTabs
+            activeValue={activeQuoteTab}
+            ariaLabel="Navegacao de orcamentos"
+            columnsClassName="md:grid-cols-2 xl:grid-cols-4"
+            onChange={setActiveQuoteTab}
+            options={quoteWorkspaceTabs}
+          />
 
           <article
             hidden={activeQuoteTab !== "create"}
