@@ -1,0 +1,155 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AuthContext } from "@orcamento/auth";
+
+const mockAuthorizeRoles = vi.hoisted(() => vi.fn());
+const mockPrisma = vi.hoisted(() => ({
+  auditLog: {
+    create: vi.fn(),
+    findMany: vi.fn()
+  }
+}));
+
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: mockPrisma
+}));
+
+vi.mock("@orcamento/auth", () => ({
+  AuthError: class AuthError extends Error {
+    public readonly code: string;
+    public readonly statusCode: number;
+
+    constructor(code: string, message: string, statusCode = 401) {
+      super(message);
+      this.name = "AuthError";
+      this.code = code;
+      this.statusCode = statusCode;
+    }
+  },
+  authorizeRoles: mockAuthorizeRoles
+}));
+
+import { listRecentAuditEvents, logAuditEvent } from "./service";
+
+const authContext: AuthContext = {
+  userId: "usr_1",
+  tenantId: "ten_1",
+  sessionId: "ses_1",
+  roles: ["owner"]
+};
+
+describe("audit/service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("persiste evento minimo de auditoria com tenant e ator opcionais normalizados", async () => {
+    vi.mocked(mockPrisma.auditLog.create).mockResolvedValue({
+      id: "aud_1"
+    });
+
+    await logAuditEvent({
+      action: "quote.create",
+      entityType: "quote",
+      entityId: "quo_1",
+      payloadJson: {
+        currentVersionId: "qv_1"
+      }
+    });
+
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        tenantId: null,
+        actorUserId: null,
+        action: "quote.create",
+        entityType: "quote",
+        entityId: "quo_1",
+        payloadJson: {
+          currentVersionId: "qv_1"
+        }
+      }
+    });
+  });
+
+  it("lista eventos recentes somente do tenant autenticado e exige papel administrativo", async () => {
+    vi.mocked(mockPrisma.auditLog.findMany).mockResolvedValue([
+      {
+        id: "aud_1",
+        action: "quote_share_link.create",
+        entityType: "quote_share_link",
+        entityId: "shl_1",
+        createdAt: new Date("2026-07-08T10:00:00.000Z"),
+        actorUser: {
+          name: "Owner Bootstrap",
+          email: "owner@example.com"
+        }
+      },
+      {
+        id: "aud_2",
+        action: "auth.login.success",
+        entityType: "auth",
+        entityId: "ses_1",
+        createdAt: new Date("2026-07-08T09:00:00.000Z"),
+        actorUser: null
+      }
+    ]);
+
+    const result = await listRecentAuditEvents(authContext);
+
+    expect(mockAuthorizeRoles).toHaveBeenCalledWith(authContext, ["owner", "admin"]);
+    expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith({
+      where: {
+        tenantId: "ten_1"
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      take: 8,
+      select: {
+        id: true,
+        action: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+        actorUser: {
+          select: {
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
+    expect(result).toEqual({
+      items: [
+        {
+          id: "aud_1",
+          action: "quote_share_link.create",
+          entityType: "quote_share_link",
+          entityId: "shl_1",
+          actorUserName: "Owner Bootstrap",
+          actorUserEmail: "owner@example.com",
+          createdAt: "2026-07-08T10:00:00.000Z"
+        },
+        {
+          id: "aud_2",
+          action: "auth.login.success",
+          entityType: "auth",
+          entityId: "ses_1",
+          actorUserName: null,
+          actorUserEmail: null,
+          createdAt: "2026-07-08T09:00:00.000Z"
+        }
+      ]
+    });
+  });
+
+  it("nao consulta eventos quando autorizacao falha", async () => {
+    mockAuthorizeRoles.mockImplementationOnce(() => {
+      throw new Error("sem permissao");
+    });
+
+    await expect(listRecentAuditEvents(authContext)).rejects.toThrow(
+      "sem permissao"
+    );
+    expect(mockPrisma.auditLog.findMany).not.toHaveBeenCalled();
+  });
+});

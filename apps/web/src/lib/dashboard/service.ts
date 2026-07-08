@@ -4,6 +4,8 @@ import type { DashboardSummaryResponse } from "./schemas";
 
 interface QuoteVersionWithItems {
   versionNumber: number;
+  totalCents?: number;
+  currency?: string;
   items: Array<{
     productId: string | null;
     productName: string;
@@ -77,6 +79,38 @@ function buildTopProducts(quotes: QuoteWithVersions[]) {
     .slice(0, 5);
 }
 
+function mapRecentQuote(quote: {
+  id: string;
+  title: string;
+  status: "draft" | "published" | "archived";
+  updatedAt: Date;
+  customer: {
+    name: string;
+  };
+  versions: Array<{
+    versionNumber: number;
+    totalCents: number;
+    currency: string;
+  }>;
+}) {
+  const currentVersion = getCurrentQuoteVersion(quote.versions);
+
+  if (!currentVersion) {
+    return null;
+  }
+
+  return {
+    id: quote.id,
+    title: quote.title,
+    customerName: quote.customer.name,
+    status: quote.status,
+    versionNumber: currentVersion.versionNumber,
+    totalCents: currentVersion.totalCents,
+    currency: currentVersion.currency,
+    updatedAt: quote.updatedAt.toISOString()
+  };
+}
+
 /**
  * Retorna os indicadores operacionais mínimos do dashboard do MVP.
  */
@@ -86,8 +120,14 @@ export async function getDashboardSummary(
   ensureDashboardReadAccess(authContext);
   const monthStart = getMonthStart();
 
-  const [totalQuotes, quotesThisMonth, activeCustomers, publishedLinks, quotes] =
-    await Promise.all([
+  const [
+    totalQuotes,
+    quotesThisMonth,
+    activeCustomers,
+    publishedLinks,
+    quotes,
+    recentQuotesSource
+  ] = await Promise.all([
       prisma.quote.count({
         where: {
           tenantId: authContext.tenantId
@@ -130,6 +170,33 @@ export async function getDashboardSummary(
             }
           }
         }
+      }),
+      prisma.quote.findMany({
+        where: {
+          tenantId: authContext.tenantId
+        },
+        orderBy: {
+          updatedAt: "desc"
+        },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          updatedAt: true,
+          customer: {
+            select: {
+              name: true
+            }
+          },
+          versions: {
+            select: {
+              versionNumber: true,
+              totalCents: true,
+              currency: true
+            }
+          }
+        }
       })
     ]);
 
@@ -138,6 +205,9 @@ export async function getDashboardSummary(
     quotesThisMonth,
     activeCustomers,
     publishedLinks,
-    topProducts: buildTopProducts(quotes)
+    topProducts: buildTopProducts(quotes),
+    recentQuotes: recentQuotesSource
+      .map(mapRecentQuote)
+      .filter((quote) => quote !== null)
   };
 }

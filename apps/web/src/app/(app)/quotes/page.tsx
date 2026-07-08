@@ -46,6 +46,8 @@ interface QuoteRevisionFormValues {
 
 type QuoteStatusFilter = "all" | QuoteSummary["status"];
 
+const quotePageSize = 5;
+
 const initialQuoteCreateFormValues: QuoteCreateFormValues = {
   customerId: "",
   title: "",
@@ -109,6 +111,18 @@ function formatStatus(value: QuoteSummary["status"]): string {
   return "Arquivado";
 }
 
+function formatSourceType(value: QuoteDetail["versions"][number]["sourceType"]): string {
+  if (value === "import_json") {
+    return "Importacao JSON";
+  }
+
+  if (value === "ai_future") {
+    return "IA";
+  }
+
+  return "Manual";
+}
+
 export default function QuotesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,6 +159,7 @@ export default function QuotesPage() {
   const [quoteSearch, setQuoteSearch] = useState("");
   const [quoteStatusFilter, setQuoteStatusFilter] =
     useState<QuoteStatusFilter>("all");
+  const [quotePage, setQuotePage] = useState(1);
   const [createForm, setCreateForm] = useState<QuoteCreateFormValues>(
     initialQuoteCreateFormValues
   );
@@ -198,6 +213,16 @@ export default function QuotesPage() {
       return searchableText.includes(normalizedSearch);
     });
   }, [customerMap, quoteSearch, quoteStatusFilter, quotes]);
+  const quoteTotalPages = Math.max(1, Math.ceil(filteredQuotes.length / quotePageSize));
+  const paginatedQuotes = useMemo(() => {
+    const startIndex = (quotePage - 1) * quotePageSize;
+
+    return filteredQuotes.slice(startIndex, startIndex + quotePageSize);
+  }, [filteredQuotes, quotePage]);
+  const quotePageStart = filteredQuotes.length
+    ? (quotePage - 1) * quotePageSize + 1
+    : 0;
+  const quotePageEnd = Math.min(quotePage * quotePageSize, filteredQuotes.length);
   const currentVersionDetail = useMemo(() => {
     if (!selectedQuoteDetail) {
       return null;
@@ -258,6 +283,30 @@ export default function QuotesPage() {
       window.clearTimeout(refreshQuotesWorkspaceTimeout);
     };
   }, [refreshQuotesWorkspace]);
+
+  useEffect(() => {
+    const resetQuotePageTimeout = window.setTimeout(() => {
+      setQuotePage(1);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(resetQuotePageTimeout);
+    };
+  }, [quoteSearch, quoteStatusFilter]);
+
+  useEffect(() => {
+    if (quotePage <= quoteTotalPages) {
+      return;
+    }
+
+    const clampQuotePageTimeout = window.setTimeout(() => {
+      setQuotePage(quoteTotalPages);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(clampQuotePageTimeout);
+    };
+  }, [quotePage, quoteTotalPages]);
 
   const openQuotePanelRoute = useCallback(
     (quoteId: string): void => {
@@ -511,7 +560,7 @@ export default function QuotesPage() {
     }
   }
 
-  async function handleCreateShareLink(): Promise<void> {
+  async function handleCreateShareLink(quoteVersionId?: string): Promise<void> {
     if (!selectedQuoteId || !selectedQuoteDetail) {
       return;
     }
@@ -522,7 +571,7 @@ export default function QuotesPage() {
 
     try {
       const shareLink = await createQuoteShareLink(selectedQuoteId, {
-        quoteVersionId: selectedQuoteDetail.currentVersion.id
+        quoteVersionId: quoteVersionId ?? selectedQuoteDetail.currentVersion.id
       });
 
       setShareLinks((currentLinks) => [shareLink, ...currentLinks]);
@@ -620,7 +669,7 @@ export default function QuotesPage() {
     }
   }
 
-  async function handleGeneratePdf(): Promise<void> {
+  async function handleGeneratePdf(quoteVersionId?: string): Promise<void> {
     if (!selectedQuoteId || !selectedQuoteDetail) {
       return;
     }
@@ -631,7 +680,7 @@ export default function QuotesPage() {
 
     try {
       const pdfPayload = await generateQuotePdf(selectedQuoteId, {
-        quoteVersionId: selectedQuoteDetail.currentVersion.id
+        quoteVersionId: quoteVersionId ?? selectedQuoteDetail.currentVersion.id
       });
       setPdfResult(pdfPayload);
       setDetailMessage("Documento comercial gerado com sucesso.");
@@ -1065,8 +1114,8 @@ export default function QuotesPage() {
                     className="h-24 rounded-2xl border border-white/10 bg-white/5"
                   />
                 ))
-              ) : filteredQuotes.length ? (
-                filteredQuotes.map((quote) => {
+              ) : paginatedQuotes.length ? (
+                paginatedQuotes.map((quote) => {
                   const isSelected = quote.id === selectedQuoteId;
                   const customer = customerMap.get(quote.customerId);
 
@@ -1119,6 +1168,42 @@ export default function QuotesPage() {
                 </div>
               )}
             </div>
+            {filteredQuotes.length > quotePageSize ? (
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300 md:flex-row md:items-center md:justify-between">
+                <p>
+                  Mostrando {quotePageStart}-{quotePageEnd} de{" "}
+                  {filteredQuotes.length} orcamento(s).
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuotePage((currentPage) => Math.max(1, currentPage - 1))
+                    }
+                    disabled={quotePage <= 1}
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+                  <span className="inline-flex rounded-full border border-white/10 bg-[#0c1526] px-4 py-2 font-mono text-xs uppercase tracking-[0.18em] text-sky-200">
+                    {quotePage}/{quoteTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuotePage((currentPage) =>
+                        Math.min(quoteTotalPages, currentPage + 1)
+                      )
+                    }
+                    disabled={quotePage >= quoteTotalPages}
+                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Proxima
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </article>
         </section>
 
@@ -1244,32 +1329,124 @@ export default function QuotesPage() {
                       <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
                         Versões
                       </p>
-                      <div className="mt-4 grid gap-3">
-                        {selectedQuoteDetail.versions.map((version) => (
-                          <div
-                            key={version.id}
-                            className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-base font-medium text-white">
-                                  Versão {version.versionNumber}
-                                </p>
-                                <p className="mt-1 text-sm text-slate-300">
-                                  {version.label ?? "Sem label"} | {version.items.length} item(ns)
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-base font-semibold text-[var(--accent)]">
-                                  {formatCurrency(version.totalCents, version.currency)}
-                                </p>
-                                <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">
-                                  {formatDate(version.createdAt)}
-                                </p>
+                      <div className="mt-4 grid gap-4">
+                        {selectedQuoteDetail.versions.map((version) => {
+                          const isCurrentVersion =
+                            version.id === selectedQuoteDetail.currentVersion.id;
+
+                          return (
+                            <div
+                              key={version.id}
+                              className={`relative rounded-2xl border p-4 ${
+                                isCurrentVersion
+                                  ? "border-sky-300/30 bg-sky-400/10"
+                                  : "border-white/10 bg-[#0b1322]"
+                              }`}
+                            >
+                              <div className="absolute left-4 top-5 h-[calc(100%-2.5rem)] w-px bg-white/10" />
+                              <div
+                                className={`absolute left-[11px] top-5 h-3 w-3 rounded-full ${
+                                  isCurrentVersion
+                                    ? "bg-sky-300 shadow-[0_0_18px_rgba(125,211,252,0.55)]"
+                                    : "bg-slate-500"
+                                }`}
+                              />
+
+                              <div className="ml-7 grid gap-4">
+                                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-base font-medium text-white">
+                                        Versao {version.versionNumber}
+                                      </p>
+                                      {isCurrentVersion ? (
+                                        <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-100">
+                                          Atual
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-2 text-sm text-slate-300">
+                                      {version.label ?? "Sem label"} |{" "}
+                                      {formatSourceType(version.sourceType)} |{" "}
+                                      {version.items.length} item(ns)
+                                    </p>
+                                    <p className="mt-1 font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
+                                      {formatDate(version.createdAt)}
+                                    </p>
+                                  </div>
+
+                                  <div className="text-left md:text-right">
+                                    <p className="text-base font-semibold text-[var(--accent)]">
+                                      {formatCurrency(
+                                        version.totalCents,
+                                        version.currency
+                                      )}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-400">
+                                      Subtotal{" "}
+                                      {formatCurrency(
+                                        version.subtotalCents,
+                                        version.currency
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                  {version.items.slice(0, 3).map((item) => (
+                                    <div
+                                      key={item.id}
+                                      className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
+                                    >
+                                      <span className="text-slate-200">
+                                        {item.quantity}x {item.productName}
+                                      </span>
+                                      <span className="text-slate-400">
+                                        {formatCurrency(
+                                          item.totalPriceCents,
+                                          version.currency
+                                        )}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {version.items.length > 3 ? (
+                                    <p className="text-xs text-slate-500">
+                                      +{version.items.length - 3} item(ns) nesta
+                                      versao
+                                    </p>
+                                  ) : null}
+                                </div>
+
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleGeneratePdf(version.id)}
+                                    disabled={isRunningAction}
+                                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Gerar documento
+                                  </button>
+                                  <Link
+                                    href={`/quotes/${selectedQuoteId}/document?quoteVersionId=${version.id}`}
+                                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                                  >
+                                    Abrir preview
+                                  </Link>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      void handleCreateShareLink(version.id)
+                                    }
+                                    disabled={isRunningAction}
+                                    className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    Publicar link
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 

@@ -1,5 +1,7 @@
+import { authorizeRoles, type AuthContext } from "@orcamento/auth";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import type { AuditEventsResponse } from "./schemas";
 
 interface AuditLogCreateData {
   tenantId?: string | null;
@@ -14,6 +16,40 @@ interface AuditLogDelegate {
   create(args: {
     data: AuditLogCreateData;
   }): Promise<unknown>;
+  findMany(args: {
+    where: {
+      tenantId: string;
+    };
+    orderBy: {
+      createdAt: "desc";
+    };
+    take: number;
+    select: {
+      id: true;
+      action: true;
+      entityType: true;
+      entityId: true;
+      createdAt: true;
+      actorUser: {
+        select: {
+          name: true;
+          email: true;
+        };
+      };
+    };
+  }): Promise<
+    Array<{
+      id: string;
+      action: string;
+      entityType: string;
+      entityId: string;
+      createdAt: Date;
+      actorUser: {
+        name: string;
+        email: string;
+      } | null;
+    }>
+  >;
 }
 
 type PrismaAuditClient = PrismaClient & {
@@ -39,4 +75,48 @@ export async function logAuditEvent(input: AuditLogCreateData): Promise<void> {
       ...(input.payloadJson !== undefined ? { payloadJson: input.payloadJson } : {})
     }
   });
+}
+
+/**
+ * Lista eventos recentes de auditoria do tenant para leitura operacional.
+ */
+export async function listRecentAuditEvents(
+  authContext: AuthContext
+): Promise<AuditEventsResponse> {
+  authorizeRoles(authContext, ["owner", "admin"]);
+
+  const events = await getAuditClient().auditLog.findMany({
+    where: {
+      tenantId: authContext.tenantId
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    take: 8,
+    select: {
+      id: true,
+      action: true,
+      entityType: true,
+      entityId: true,
+      createdAt: true,
+      actorUser: {
+        select: {
+          name: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  return {
+    items: events.map((event) => ({
+      id: event.id,
+      action: event.action,
+      entityType: event.entityType,
+      entityId: event.entityId,
+      actorUserName: event.actorUser?.name ?? null,
+      actorUserEmail: event.actorUser?.email ?? null,
+      createdAt: event.createdAt.toISOString()
+    }))
+  };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { FeedbackBanner } from "@/components/ui/feedbackBanner";
 import { PageHeader } from "@/components/ui/pageHeader";
 import { StatCard } from "@/components/ui/statCard";
 import { Surface } from "@/components/ui/surface";
+import { useAudit } from "@/hooks/useAudit";
 import { useDashboard } from "@/hooks/useDashboard";
 
 const metricCards = [
@@ -47,14 +49,62 @@ function formatMetric(value: number): string {
   return new Intl.NumberFormat("pt-BR").format(value);
 }
 
+function formatCurrency(valueInCents: number, currency: string): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency
+  }).format(valueInCents / 100);
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function formatStatus(value: "draft" | "published" | "archived"): string {
+  if (value === "draft") {
+    return "Draft";
+  }
+
+  if (value === "published") {
+    return "Publicado";
+  }
+
+  return "Arquivado";
+}
+
+function formatAuditAction(action: string): string {
+  return action
+    .split(".")
+    .map((part) => part.replace(/_/g, " "))
+    .join(" / ");
+}
+
 export default function DashboardPage() {
-  const { accessToken } = useAuthContext();
+  const { accessToken, roles } = useAuthContext();
   const { summary, isLoading, error, loadDashboardSummary } =
     useDashboard(accessToken);
+  const {
+    events: auditEvents,
+    isLoading: isLoadingAudit,
+    error: auditError,
+    loadRecentAuditEvents
+  } = useAudit(accessToken);
+  const canReadAudit = roles.some((role) => role === "owner" || role === "admin");
 
   useEffect(() => {
     void loadDashboardSummary();
   }, [loadDashboardSummary]);
+
+  useEffect(() => {
+    if (!canReadAudit) {
+      return;
+    }
+
+    void loadRecentAuditEvents();
+  }, [canReadAudit, loadRecentAuditEvents]);
 
   return (
     <div className="grid gap-5">
@@ -175,6 +225,73 @@ export default function DashboardPage() {
               </div>
             )}
           </Surface>
+
+          <Surface as="article" variant="default" className="p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+                  Orçamentos recentes
+                </p>
+                <h2 className="mt-3 text-2xl font-semibold text-[var(--foreground-strong)]">
+                  Últimas movimentações comerciais
+                </h2>
+              </div>
+              <Link
+                href="/quotes"
+                className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--accent)]/40"
+              >
+                Ver todos
+              </Link>
+            </div>
+
+            {isLoading ? (
+              <div className="mt-6 grid gap-3">
+                {[0, 1, 2].map((item) => (
+                  <div
+                    key={item}
+                    className="h-24 rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface-secondary)]"
+                  />
+                ))}
+              </div>
+            ) : summary?.recentQuotes.length ? (
+              <div className="mt-6 grid gap-3">
+                {summary.recentQuotes.map((quote) => (
+                  <Link
+                    key={quote.id}
+                    href={`/quotes?quoteId=${quote.id}`}
+                    className="rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-secondary)]/80"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-medium text-[var(--foreground-strong)]">
+                          {quote.title}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                          {quote.customerName} | versão {quote.versionNumber} |{" "}
+                          {formatDate(quote.updatedAt)}
+                        </p>
+                      </div>
+                      <div className="text-left md:text-right">
+                        <p className="text-base font-semibold text-[var(--accent)]">
+                          {formatCurrency(quote.totalCents, quote.currency)}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                          {formatStatus(quote.status)}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6">
+                <EmptyState
+                  title="Nenhum orçamento recente ainda."
+                  description="Crie ou importe um orçamento para acompanhar as movimentações por aqui."
+                />
+              </div>
+            )}
+          </Surface>
         </section>
 
         <aside className="grid gap-5">
@@ -227,6 +344,75 @@ export default function DashboardPage() {
               </Surface>
             </div>
           </Surface>
+
+          {canReadAudit ? (
+            <Surface as="article" variant="default" className="p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+                    Auditoria recente
+                  </p>
+                  <p className="mt-3 text-sm leading-7 text-[var(--muted)]">
+                    Ultimos eventos sensiveis registrados no tenant.
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={() => void loadRecentAuditEvents()}
+                  disabled={isLoadingAudit}
+                >
+                  Atualizar
+                </Button>
+              </div>
+
+              {auditError ? (
+                <div className="mt-4 rounded-[1.2rem] border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
+                  {auditError}
+                </div>
+              ) : null}
+
+              {isLoadingAudit ? (
+                <div className="mt-5 grid gap-3">
+                  {[0, 1, 2].map((item) => (
+                    <div
+                      key={item}
+                      className="h-20 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)]"
+                    />
+                  ))}
+                </div>
+              ) : auditEvents.length ? (
+                <div className="mt-5 grid gap-3">
+                  {auditEvents.map((event) => (
+                    <Surface
+                      key={event.id}
+                      as="div"
+                      variant="subtle"
+                      className="rounded-[1.2rem] p-4"
+                    >
+                      <p className="text-sm font-medium capitalize text-[var(--foreground-strong)]">
+                        {formatAuditAction(event.action)}
+                      </p>
+                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                        {event.entityType} | {formatDate(event.createdAt)}
+                      </p>
+                      <p className="mt-2 truncate text-sm text-[var(--muted)]">
+                        {event.actorUserName ??
+                          event.actorUserEmail ??
+                          "Sistema ou usuario nao vinculado"}
+                      </p>
+                    </Surface>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-5">
+                  <EmptyState
+                    title="Nenhum evento recente."
+                    description="Acoes sensiveis aparecerao aqui conforme o uso do tenant."
+                  />
+                </div>
+              )}
+            </Surface>
+          ) : null}
         </aside>
       </div>
     </div>
