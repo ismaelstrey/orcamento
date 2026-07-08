@@ -32,6 +32,7 @@ describe("ai/providers", () => {
       isEnabled: false,
       promptVersion: "quote-draft-v1",
       outputSchemaVersion: "ai.quote_draft.v1",
+      supportedCurrencies: ["BRL"],
       providers: []
     });
   });
@@ -43,11 +44,14 @@ describe("ai/providers", () => {
       isEnabled: true,
       promptVersion: "quote-draft-v1",
       outputSchemaVersion: "ai.quote_draft.v1",
+      supportedCurrencies: ["BRL"],
       providers: [
         {
           providerName: "local-deterministic",
           mode: "local",
-          description: "Provider determinístico para desenvolvimento e demos."
+          description: "Provider determinístico para desenvolvimento e demos.",
+          maxCatalogHints: 50,
+          maxGeneratedItems: 3
         }
       ]
     });

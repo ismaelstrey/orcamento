@@ -3,11 +3,26 @@ import type { ImportQuoteJsonRequest } from "@/lib/quotes/schemas";
 
 export const quoteDraftPromptVersion = "quote-draft-v1";
 export const quoteDraftOutputSchemaVersion = "ai.quote_draft.v1";
+export const quoteDraftSupportedCurrencies = ["BRL"] as const;
+export const quoteDraftMaxCatalogHints = 50;
+export const quoteDraftMaxGeneratedItems = 3;
+
+const aiQuoteDraftCurrencySchema = z
+  .string()
+  .length(3)
+  .transform((currency) => currency.toUpperCase())
+  .refine(
+    (currency): currency is (typeof quoteDraftSupportedCurrencies)[number] =>
+      quoteDraftSupportedCurrencies.includes(
+        currency as (typeof quoteDraftSupportedCurrencies)[number]
+      ),
+    "Moeda nao suportada pelo assistente de IA."
+  );
 
 export const aiQuoteDraftRequestSchema = z.object({
   customerId: z.string().min(1),
   userText: z.string().min(10).max(8000),
-  currency: z.string().length(3).default("BRL"),
+  currency: aiQuoteDraftCurrencySchema.default("BRL"),
   budgetMaxCents: z.number().int().positive().optional(),
   catalogHints: z
     .array(
@@ -17,7 +32,7 @@ export const aiQuoteDraftRequestSchema = z.object({
         category: z.string().min(1).optional()
       })
     )
-    .max(50)
+    .max(quoteDraftMaxCatalogHints)
     .default([])
 });
 
@@ -37,7 +52,7 @@ export const aiQuoteDraftOutputSchema = z.object({
   budgetMaxCents: z.number().int().positive().optional(),
   usageContext: z.string().max(500).optional(),
   publicNotes: z.string().max(4000).optional(),
-  items: z.array(aiQuoteDraftItemSchema).min(1),
+  items: z.array(aiQuoteDraftItemSchema).min(1).max(quoteDraftMaxGeneratedItems),
   warnings: z.array(z.string().max(500)).default([])
 });
 

@@ -77,7 +77,11 @@ describe("audit/service", () => {
         action: "quote_share_link.create",
         entityType: "quote_share_link",
         entityId: "shl_1",
-        payloadJson: null,
+        payloadJson: {
+          quoteId: "quo_1",
+          quoteVersionId: "qv_1",
+          slug: "q_publico"
+        },
         createdAt: new Date("2026-07-08T10:00:00.000Z"),
         actorUser: {
           name: "Owner Bootstrap",
@@ -100,7 +104,15 @@ describe("audit/service", () => {
         entityId: "ses_1",
         payloadJson: {
           provider: "local-deterministic",
+          promptVersion: "quote-draft-v1",
+          outputSchemaVersion: "ai.quote_draft.v1",
+          model: "local-deterministic-v1",
+          totalTokens: 120,
+          estimatedCostCents: 0,
+          durationMs: 15,
           itemCount: 2,
+          confidenceAverage: 0.76,
+          confidenceMin: 0.62,
           warningCount: 1,
           fallbackAttemptsCount: 0,
           userTextLength: 68
@@ -148,7 +160,11 @@ describe("audit/service", () => {
           entityId: "shl_1",
           actorUserName: "Owner Bootstrap",
           actorUserEmail: "owner@example.com",
-          payloadSummary: [],
+          payloadSummary: [
+            "Orcamento: quo_1",
+            "Versao ID: qv_1",
+            "Slug publico: q_publico"
+          ],
           createdAt: "2026-07-08T10:00:00.000Z"
         },
         {
@@ -170,7 +186,15 @@ describe("audit/service", () => {
           actorUserEmail: "owner@example.com",
           payloadSummary: [
             "Provider: local-deterministic",
+            "Prompt: quote-draft-v1",
+            "Schema: ai.quote_draft.v1",
+            "Modelo: local-deterministic-v1",
+            "Tokens: 120",
+            "Custo estimado: 0 centavos",
+            "Duração: 15ms",
             "Itens sugeridos: 2",
+            "Confianca media: 76%",
+            "Confianca minima: 62%",
             "Alertas: 1",
             "Fallbacks: 0"
           ],

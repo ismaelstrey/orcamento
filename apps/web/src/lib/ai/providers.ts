@@ -1,6 +1,9 @@
 import {
+  quoteDraftMaxCatalogHints,
+  quoteDraftMaxGeneratedItems,
   quoteDraftOutputSchemaVersion,
   quoteDraftPromptVersion,
+  quoteDraftSupportedCurrencies,
   type AiQuoteDraftProvider
 } from "./quoteDraft";
 import { createLocalQuoteDraftProvider } from "./localProvider";
@@ -9,12 +12,15 @@ export interface QuoteDraftProviderCapability {
   providerName: string;
   mode: "local" | "external";
   description: string;
+  maxCatalogHints: number;
+  maxGeneratedItems: number;
 }
 
 export interface QuoteDraftProviderCapabilities {
   isEnabled: boolean;
   promptVersion: typeof quoteDraftPromptVersion;
   outputSchemaVersion: typeof quoteDraftOutputSchemaVersion;
+  supportedCurrencies: string[];
   providers: QuoteDraftProviderCapability[];
 }
 
@@ -42,11 +48,14 @@ export function getQuoteDraftProviderCapabilities(): QuoteDraftProviderCapabilit
       isEnabled: true,
       promptVersion: quoteDraftPromptVersion,
       outputSchemaVersion: quoteDraftOutputSchemaVersion,
+      supportedCurrencies: [...quoteDraftSupportedCurrencies],
       providers: [
         {
           providerName: "local-deterministic",
           mode: "local",
-          description: "Provider determinístico para desenvolvimento e demos."
+          description: "Provider determinístico para desenvolvimento e demos.",
+          maxCatalogHints: quoteDraftMaxCatalogHints,
+          maxGeneratedItems: quoteDraftMaxGeneratedItems
         }
       ]
     };
@@ -56,6 +65,7 @@ export function getQuoteDraftProviderCapabilities(): QuoteDraftProviderCapabilit
     isEnabled: false,
     promptVersion: quoteDraftPromptVersion,
     outputSchemaVersion: quoteDraftOutputSchemaVersion,
+    supportedCurrencies: [...quoteDraftSupportedCurrencies],
     providers: []
   };
 }

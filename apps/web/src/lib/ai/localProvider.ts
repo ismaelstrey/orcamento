@@ -1,4 +1,5 @@
 import {
+  quoteDraftMaxGeneratedItems,
   quoteDraftOutputSchemaVersion,
   type AiQuoteDraftOutput,
   type AiQuoteDraftProvider,
@@ -46,10 +47,10 @@ function inferQuantity(userText: string): number {
   return 1;
 }
 
-function selectCatalogHint(input: AiQuoteDraftRequest) {
+function scoreCatalogHints(input: AiQuoteDraftRequest) {
   const normalizedBriefing = normalizeText(input.userText);
 
-  const scoredHints = input.catalogHints
+  return input.catalogHints
     .map((hint) => {
       const nameScore = normalizeText(hint.name)
         .split(/\s+/)
@@ -69,7 +70,23 @@ function selectCatalogHint(input: AiQuoteDraftRequest) {
       };
     })
     .sort((leftHint, rightHint) => rightHint.score - leftHint.score);
+}
 
+function selectCatalogHints(input: AiQuoteDraftRequest) {
+  const matchedHints = scoreCatalogHints(input)
+    .filter((scoredHint) => scoredHint.score > 0)
+    .slice(0, quoteDraftMaxGeneratedItems)
+    .map((scoredHint) => scoredHint.hint);
+
+  if (matchedHints.length) {
+    return matchedHints;
+  }
+
+  return input.catalogHints[0] ? [input.catalogHints[0]] : [];
+}
+
+function selectCatalogHint(input: AiQuoteDraftRequest) {
+  const scoredHints = scoreCatalogHints(input);
   return scoredHints[0]?.score ? scoredHints[0].hint : input.catalogHints[0];
 }
 
@@ -88,39 +105,54 @@ function inferCategory(input: AiQuoteDraftRequest): string {
 }
 
 function buildLocalDraft(input: AiQuoteDraftRequest): AiQuoteDraftOutput {
-  const selectedHint = selectCatalogHint(input);
+  const selectedHints = selectCatalogHints(input);
+  const selectedHint = selectedHints[0];
   const quantity = inferQuantity(input.userText);
   const category = inferCategory(input);
   const model = selectedHint?.name ?? "Item sugerido a partir do briefing";
+  const warnings = selectedHint
+    ? ["Provider local e apenas um simulador deterministico para desenvolvimento."]
+    : [
+        "Nenhum item do catalogo foi associado com confianca.",
+        "Provider local e apenas um simulador deterministico para desenvolvimento."
+      ];
+
+  if (selectedHints.length > 1) {
+    warnings.push(
+      "Mais de um item foi sugerido pelo provider local; revise quantidades e compatibilidade."
+    );
+  }
 
   return {
     schemaVersion: quoteDraftOutputSchemaVersion,
     title: selectedHint
-      ? `Orçamento assistido de ${selectedHint.name}`
-      : "Orçamento assistido por briefing",
+      ? `Orcamento assistido de ${selectedHint.name}`
+      : "Orcamento assistido por briefing",
     category,
     currency: input.currency.toUpperCase(),
     ...(input.budgetMaxCents ? { budgetMaxCents: input.budgetMaxCents } : {}),
     usageContext: input.userText.slice(0, 500),
     publicNotes:
-      "Draft preliminar gerado pelo provider local. Revise itens, preços e disponibilidade antes de enviar.",
-    items: [
-      {
-        type: category,
-        model,
-        quantity,
-        confidence: selectedHint ? 0.72 : 0.48,
-        rationale: selectedHint
-          ? "Item escolhido por proximidade textual com o catálogo enviado."
-          : "Sem correspondência de catálogo suficiente; item genérico para revisão."
-      }
-    ],
-    warnings: selectedHint
-      ? ["Provider local é apenas um simulador determinístico para desenvolvimento."]
+      "Draft preliminar gerado pelo provider local. Revise itens, precos e disponibilidade antes de enviar.",
+    items: selectedHints.length
+      ? selectedHints.map((hint) => ({
+          type: hint.category ?? category,
+          model: hint.name,
+          quantity,
+          confidence: 0.72,
+          rationale: "Item escolhido por proximidade textual com o catalogo enviado."
+        }))
       : [
-          "Nenhum item do catálogo foi associado com confiança.",
-          "Provider local é apenas um simulador determinístico para desenvolvimento."
-        ]
+          {
+            type: category,
+            model,
+            quantity,
+            confidence: 0.48,
+            rationale:
+              "Sem correspondencia de catalogo suficiente; item generico para revisao."
+          }
+        ],
+    warnings
   };
 }
 

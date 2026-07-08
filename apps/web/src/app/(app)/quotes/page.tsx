@@ -182,6 +182,7 @@ export default function QuotesPage() {
     useState<ExportQuoteJsonResponse | null>(null);
   const [pdfResult, setPdfResult] = useState<PdfResponse | null>(null);
   const [importJsonText, setImportJsonText] = useState("");
+  const [isImportJsonFromAi, setIsImportJsonFromAi] = useState(false);
   const [importResult, setImportResult] =
     useState<ImportQuoteJsonResponse | null>(null);
   const [aiDraftForm, setAiDraftForm] = useState<QuoteAiDraftFormValues>(
@@ -192,6 +193,7 @@ export default function QuotesPage() {
   const [aiDraftCapabilities, setAiDraftCapabilities] =
     useState<QuoteDraftProviderCapabilities | null>(null);
   const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
+  const [hasCopiedAiJson, setHasCopiedAiJson] = useState(false);
   const [quoteSearch, setQuoteSearch] = useState("");
   const [quoteStatusFilter, setQuoteStatusFilter] =
     useState<QuoteStatusFilter>("all");
@@ -565,6 +567,8 @@ export default function QuotesPage() {
 
   function handleUseImportExample(): void {
     setImportJsonText(buildImportJsonExample(customers[0]?.id ?? ""));
+    setIsImportJsonFromAi(false);
+    setHasCopiedAiJson(false);
     setImportResult(null);
     setImportMessage(null);
     setImportError(null);
@@ -577,6 +581,35 @@ export default function QuotesPage() {
     });
   }
 
+  async function handleCopyGeneratedAiJson(): Promise<void> {
+    const value = importJsonText.trim();
+
+    if (!value) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const copyTarget = document.createElement("textarea");
+        copyTarget.value = value;
+        copyTarget.setAttribute("readonly", "true");
+        copyTarget.style.position = "fixed";
+        copyTarget.style.opacity = "0";
+        document.body.appendChild(copyTarget);
+        copyTarget.select();
+        document.execCommand("copy");
+        document.body.removeChild(copyTarget);
+      }
+
+      setHasCopiedAiJson(true);
+      window.setTimeout(() => setHasCopiedAiJson(false), 1800);
+    } catch {
+      setAiDraftError("Nao foi possivel copiar o JSON gerado.");
+    }
+  }
+
   function handleUseAiDraftExample(): void {
     const example = buildAiDraftBriefingExample();
 
@@ -587,6 +620,7 @@ export default function QuotesPage() {
       budgetMaxCents: example.budgetMaxCents
     }));
     setAiDraftReview(null);
+    setHasCopiedAiJson(false);
     setAiDraftMessage(null);
     setAiDraftError(null);
   }
@@ -597,6 +631,7 @@ export default function QuotesPage() {
       customerId: customers[0]?.id ?? ""
     });
     setAiDraftReview(null);
+    setHasCopiedAiJson(false);
     setAiDraftMessage(null);
     setAiDraftError(null);
   }
@@ -609,6 +644,7 @@ export default function QuotesPage() {
     setAiDraftMessage(null);
     setAiDraftError(null);
     setAiDraftReview(null);
+    setHasCopiedAiJson(false);
 
     try {
       const normalizedBudget = aiDraftForm.budgetMaxCents.trim();
@@ -637,6 +673,8 @@ export default function QuotesPage() {
 
       setAiDraftReview(review);
       setImportJsonText(JSON.stringify(review.importPayload, null, 2));
+      setIsImportJsonFromAi(true);
+      setHasCopiedAiJson(false);
       setImportResult(null);
       setImportError(null);
       setImportMessage("Draft de IA convertido em JSON. Revise antes de importar.");
@@ -665,6 +703,7 @@ export default function QuotesPage() {
       const parsedPayload = JSON.parse(importJsonText) as ImportQuoteJsonRequest;
       const importedQuote = await importQuoteFromJson(parsedPayload);
 
+      setIsImportJsonFromAi(false);
       setImportResult(importedQuote);
       setImportMessage(
         importedQuote.warnings.length
@@ -1193,6 +1232,18 @@ export default function QuotesPage() {
                   Prompt {aiDraftCapabilities?.promptVersion} | Schema{" "}
                   {aiDraftCapabilities?.outputSchemaVersion}
                 </span>
+                {aiDraftCapabilities?.providers[0] ? (
+                  <span className="mt-1 block font-mono text-xs uppercase tracking-[0.18em] text-emerald-100/75">
+                    Até {aiDraftCapabilities.providers[0].maxGeneratedItems} itens
+                    por draft | {aiDraftCapabilities.providers[0].maxCatalogHints}{" "}
+                    pistas de catálogo
+                  </span>
+                ) : null}
+                {aiDraftCapabilities?.supportedCurrencies.length ? (
+                  <span className="mt-1 block font-mono text-xs uppercase tracking-[0.18em] text-emerald-100/75">
+                    Moedas: {aiDraftCapabilities.supportedCurrencies.join(", ")}
+                  </span>
+                ) : null}
               </div>
             ) : null}
 
@@ -1272,6 +1323,22 @@ export default function QuotesPage() {
                     </p>
                   </div>
 
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                      {aiDraftReview.importPayload.items.length} item(ns)
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                      Min. confiança{" "}
+                      {Math.round(aiDraftReview.confidenceSummary.min * 100)}%
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                      {aiDraftReview.warnings.length} alerta(s)
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+                      {aiDraftReview.fallbackAttempts.length} fallback(s)
+                    </span>
+                  </div>
+
                   {aiDraftReview.warnings.length ? (
                     <ul className="grid gap-2 text-sm leading-6 text-amber-100">
                       {aiDraftReview.warnings.map((warning) => (
@@ -1280,13 +1347,29 @@ export default function QuotesPage() {
                     </ul>
                   ) : null}
 
-                  <button
-                    type="button"
-                    onClick={scrollToImportJsonSection}
-                    className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
-                  >
-                    Revisar JSON gerado
-                  </button>
+                  {aiDraftReview.confidenceSummary.min < 0.6 ? (
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-50">
+                      Existem itens com baixa confiança. Revise modelos, quantidades e
+                      aderência ao catálogo antes de importar.
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={scrollToImportJsonSection}
+                      className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
+                    >
+                      Revisar JSON gerado
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyGeneratedAiJson()}
+                      className="inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/10"
+                    >
+                      {hasCopiedAiJson ? "JSON copiado" : "Copiar JSON"}
+                    </button>
+                  </div>
                 </div>
               ) : null}
 
@@ -1335,6 +1418,13 @@ export default function QuotesPage() {
               </button>
             </div>
 
+            {isImportJsonFromAi ? (
+              <div className="mt-5 rounded-2xl border border-sky-300/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-50">
+                Este payload foi gerado pelo assistente IA. Revise os campos antes
+                de criar o draft.
+              </div>
+            ) : null}
+
             <form className="mt-6 grid gap-4" onSubmit={handleImportQuoteJson}>
               <label className="grid gap-2 text-sm text-slate-200">
                 <span>Payload JSON</span>
@@ -1342,6 +1432,8 @@ export default function QuotesPage() {
                   value={importJsonText}
                   onChange={(event) => {
                     setImportJsonText(event.target.value);
+                    setIsImportJsonFromAi(false);
+                    setHasCopiedAiJson(false);
                     setImportError(null);
                     setImportMessage(null);
                   }}

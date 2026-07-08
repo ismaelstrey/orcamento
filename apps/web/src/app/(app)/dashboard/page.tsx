@@ -12,7 +12,9 @@ import { Surface } from "@/components/ui/surface";
 import { useAudit } from "@/hooks/useAudit";
 import { useDashboard } from "@/hooks/useDashboard";
 import {
+  compactAuditPayloadSummary,
   formatAuditActionLabel,
+  formatAuditEventInsight,
   formatAuditEntityLabel,
   getAuditActionTone
 } from "@/lib/audit/presenter";
@@ -345,13 +347,18 @@ export default function DashboardPage() {
                 <p className="text-sm text-[var(--muted)]">Atividade do assistente IA</p>
                 <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
                   {summary
-                    ? `${formatMetric(summary.aiActivity.draftsThisMonth)} draft(s) no mês`
+                    ? summary.aiActivity.totalAttemptsThisMonth > 0
+                      ? `${formatMetric(summary.aiActivity.draftsThisMonth)} draft(s) no mes`
+                      : "Sem tentativas no mes"
                     : "Carregando..."}
                 </p>
                 {summary ? (
                   <p className="mt-2 text-sm text-[var(--muted)]">
-                    {formatMetric(summary.aiActivity.totalAttemptsThisMonth)} tentativa(s)
-                    | {Math.round(summary.aiActivity.successRate * 100)}% sucesso
+                    {summary.aiActivity.totalAttemptsThisMonth > 0
+                      ? `${formatMetric(summary.aiActivity.totalAttemptsThisMonth)} tentativa(s) | ${Math.round(
+                          summary.aiActivity.successRate * 100
+                        )}% sucesso`
+                      : "Use o assistente em Orcamentos para iniciar medicoes."}
                   </p>
                 ) : null}
                 {summary?.aiActivity.failuresThisMonth ? (
@@ -403,6 +410,13 @@ export default function DashboardPage() {
                 <div className="mt-5 grid gap-3">
                   {auditEvents.map((event) => {
                     const tone = getAuditActionTone(event.action);
+                    const compactPayloadSummary = compactAuditPayloadSummary(
+                      event.payloadSummary
+                    );
+                    const auditEventInsight = formatAuditEventInsight({
+                      action: event.action,
+                      payloadSummary: event.payloadSummary
+                    });
 
                     return (
                       <Surface
@@ -442,9 +456,14 @@ export default function DashboardPage() {
                             event.actorUserEmail ??
                             "Sistema ou usuario nao vinculado"}
                         </p>
-                        {event.payloadSummary.length ? (
+                        {auditEventInsight ? (
+                          <p className="mt-2 text-sm leading-6 text-[var(--foreground)]">
+                            {auditEventInsight}
+                          </p>
+                        ) : null}
+                        {compactPayloadSummary.visibleItems.length ? (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {event.payloadSummary.map((summaryItem) => (
+                            {compactPayloadSummary.visibleItems.map((summaryItem) => (
                               <span
                                 key={summaryItem}
                                 className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]"
@@ -452,6 +471,11 @@ export default function DashboardPage() {
                                 {summaryItem}
                               </span>
                             ))}
+                            {compactPayloadSummary.hiddenCount > 0 ? (
+                              <span className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]">
+                                +{compactPayloadSummary.hiddenCount} detalhe(s)
+                              </span>
+                            ) : null}
                           </div>
                         ) : null}
                       </Surface>

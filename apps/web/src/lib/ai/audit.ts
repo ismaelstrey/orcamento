@@ -76,9 +76,16 @@ export async function generateAuditedQuoteDraftReview(input: {
       payloadJson: {
         ...requestAuditPayload,
         promptVersion: review.promptVersion,
+        outputSchemaVersion: review.importPayload.schemaVersion,
         provider: review.provider,
+        model: review.metrics.model,
+        totalTokens: review.metrics.totalTokens ?? null,
+        estimatedCostCents: review.metrics.estimatedCostCents ?? null,
+        durationMs: review.metrics.durationMs ?? null,
         warningCount: review.warnings.length,
         itemCount: review.importPayload.items.length,
+        confidenceAverage: review.confidenceSummary.average,
+        confidenceMin: review.confidenceSummary.min,
         fallbackAttemptsCount: review.fallbackAttempts.length
       }
     });

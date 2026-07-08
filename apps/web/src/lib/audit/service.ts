@@ -83,8 +83,40 @@ function buildAuditPayloadSummary(
       summary.push(`Provider: ${payload.provider}`);
     }
 
+    if (typeof payload.promptVersion === "string") {
+      summary.push(`Prompt: ${payload.promptVersion}`);
+    }
+
+    if (typeof payload.outputSchemaVersion === "string") {
+      summary.push(`Schema: ${payload.outputSchemaVersion}`);
+    }
+
+    if (typeof payload.model === "string") {
+      summary.push(`Modelo: ${payload.model}`);
+    }
+
+    if (typeof payload.totalTokens === "number") {
+      summary.push(`Tokens: ${payload.totalTokens}`);
+    }
+
+    if (typeof payload.estimatedCostCents === "number") {
+      summary.push(`Custo estimado: ${payload.estimatedCostCents} centavos`);
+    }
+
+    if (typeof payload.durationMs === "number") {
+      summary.push(`Duração: ${payload.durationMs}ms`);
+    }
+
     if (typeof payload.itemCount === "number") {
       summary.push(`Itens sugeridos: ${payload.itemCount}`);
+    }
+
+    if (typeof payload.confidenceAverage === "number") {
+      summary.push(`Confianca media: ${Math.round(payload.confidenceAverage * 100)}%`);
+    }
+
+    if (typeof payload.confidenceMin === "number") {
+      summary.push(`Confianca minima: ${Math.round(payload.confidenceMin * 100)}%`);
     }
 
     if (typeof payload.warningCount === "number") {
@@ -112,6 +144,26 @@ function buildAuditPayloadSummary(
 
   if (typeof payload.currentVersionId === "string") {
     summary.push("Versão inicial registrada");
+  }
+
+  if (typeof payload.quoteId === "string") {
+    summary.push(`Orcamento: ${payload.quoteId}`);
+  }
+
+  if (typeof payload.versionId === "string") {
+    summary.push(`Versao ID: ${payload.versionId}`);
+  }
+
+  if (typeof payload.quoteVersionId === "string") {
+    summary.push(`Versao ID: ${payload.quoteVersionId}`);
+  }
+
+  if (typeof payload.versionNumber === "number") {
+    summary.push(`Versao: ${payload.versionNumber}`);
+  }
+
+  if (typeof payload.slug === "string") {
+    summary.push(`Slug publico: ${payload.slug}`);
   }
 
   return summary;

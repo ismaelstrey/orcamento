@@ -65,9 +65,16 @@ describe("ai/audit", () => {
         catalogHintsCount: 1,
         budgetMaxCents: 1200000,
         promptVersion: "quote-draft-v1",
+        outputSchemaVersion: "ai.quote_draft.v1",
         provider: "local-deterministic",
+        model: "local-deterministic-v1",
+        totalTokens: expect.any(Number),
+        estimatedCostCents: 0,
+        durationMs: expect.any(Number),
         warningCount: 1,
         itemCount: 1,
+        confidenceAverage: 0.72,
+        confidenceMin: 0.72,
         fallbackAttemptsCount: 0
       }
     });
