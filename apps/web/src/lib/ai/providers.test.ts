@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateQuoteDraftReviewWithFallback } from "./service";
-import { getConfiguredQuoteDraftProviders } from "./providers";
+import {
+  getConfiguredQuoteDraftProviders,
+  getQuoteDraftProviderCapabilities
+} from "./providers";
 
 const request = {
   customerId: "cus_1",
@@ -25,10 +28,29 @@ describe("ai/providers", () => {
     vi.stubEnv("AI_QUOTE_DRAFT_PROVIDER", "");
 
     expect(getConfiguredQuoteDraftProviders()).toEqual([]);
+    expect(getQuoteDraftProviderCapabilities()).toEqual({
+      isEnabled: false,
+      promptVersion: "quote-draft-v1",
+      outputSchemaVersion: "ai.quote_draft.v1",
+      providers: []
+    });
   });
 
   it("habilita provider local deterministico por variavel de ambiente", async () => {
     vi.stubEnv("AI_QUOTE_DRAFT_PROVIDER", "local");
+
+    expect(getQuoteDraftProviderCapabilities()).toEqual({
+      isEnabled: true,
+      promptVersion: "quote-draft-v1",
+      outputSchemaVersion: "ai.quote_draft.v1",
+      providers: [
+        {
+          providerName: "local-deterministic",
+          mode: "local",
+          description: "Provider determinístico para desenvolvimento e demos."
+        }
+      ]
+    });
 
     const review = await generateQuoteDraftReviewWithFallback({
       providers: getConfiguredQuoteDraftProviders(),

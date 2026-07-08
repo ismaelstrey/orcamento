@@ -357,6 +357,10 @@ pode ser habilitado com:
 AI_QUOTE_DRAFT_PROVIDER=local
 ```
 
+A geração deve registrar auditoria com metadados seguros (`provider`, versão de
+prompt, quantidade de itens, warnings e tamanho do briefing), sem persistir o
+texto bruto enviado pelo usuário.
+
 ### POST /api/v1/quotes/import-json
 
 Importa um orçamento estruturado e cria draft inicial.

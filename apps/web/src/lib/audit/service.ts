@@ -29,6 +29,7 @@ interface AuditLogDelegate {
       action: true;
       entityType: true;
       entityId: true;
+      payloadJson: true;
       createdAt: true;
       actorUser: {
         select: {
@@ -43,6 +44,7 @@ interface AuditLogDelegate {
       action: string;
       entityType: string;
       entityId: string;
+      payloadJson: Prisma.JsonValue | null;
       createdAt: Date;
       actorUser: {
         name: string;
@@ -59,6 +61,60 @@ type PrismaAuditClient = PrismaClient & {
 function getAuditClient(): PrismaAuditClient {
   // O client Prisma pode estar sem regenerate neste ambiente; o cast mantém a integração compilável.
   return prisma as PrismaAuditClient;
+}
+
+function getPayloadRecord(payloadJson: Prisma.JsonValue | null): Record<string, unknown> {
+  if (!payloadJson || typeof payloadJson !== "object" || Array.isArray(payloadJson)) {
+    return {};
+  }
+
+  return payloadJson as Record<string, unknown>;
+}
+
+function buildAuditPayloadSummary(
+  action: string,
+  payloadJson: Prisma.JsonValue | null
+): string[] {
+  const payload = getPayloadRecord(payloadJson);
+  const summary: string[] = [];
+
+  if (action.startsWith("ai.quote_draft.")) {
+    if (typeof payload.provider === "string") {
+      summary.push(`Provider: ${payload.provider}`);
+    }
+
+    if (typeof payload.itemCount === "number") {
+      summary.push(`Itens sugeridos: ${payload.itemCount}`);
+    }
+
+    if (typeof payload.warningCount === "number") {
+      summary.push(`Alertas: ${payload.warningCount}`);
+    }
+
+    if (typeof payload.fallbackAttemptsCount === "number") {
+      summary.push(`Fallbacks: ${payload.fallbackAttemptsCount}`);
+    }
+
+    if (typeof payload.code === "string") {
+      summary.push(`Erro: ${payload.code}`);
+    }
+
+    return summary;
+  }
+
+  if (typeof payload.warningCount === "number") {
+    summary.push(`Alertas: ${payload.warningCount}`);
+  }
+
+  if (typeof payload.normalizedItemsCount === "number") {
+    summary.push(`Itens normalizados: ${payload.normalizedItemsCount}`);
+  }
+
+  if (typeof payload.currentVersionId === "string") {
+    summary.push("Versão inicial registrada");
+  }
+
+  return summary;
 }
 
 /**
@@ -98,6 +154,7 @@ export async function listRecentAuditEvents(
       action: true,
       entityType: true,
       entityId: true,
+      payloadJson: true,
       createdAt: true,
       actorUser: {
         select: {
@@ -116,6 +173,7 @@ export async function listRecentAuditEvents(
       entityId: event.entityId,
       actorUserName: event.actorUser?.name ?? null,
       actorUserEmail: event.actorUser?.email ?? null,
+      payloadSummary: buildAuditPayloadSummary(event.action, event.payloadJson),
       createdAt: event.createdAt.toISOString()
     }))
   };

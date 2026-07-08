@@ -77,6 +77,7 @@ describe("audit/service", () => {
         action: "quote_share_link.create",
         entityType: "quote_share_link",
         entityId: "shl_1",
+        payloadJson: null,
         createdAt: new Date("2026-07-08T10:00:00.000Z"),
         actorUser: {
           name: "Owner Bootstrap",
@@ -88,8 +89,27 @@ describe("audit/service", () => {
         action: "auth.login.success",
         entityType: "auth",
         entityId: "ses_1",
+        payloadJson: null,
         createdAt: new Date("2026-07-08T09:00:00.000Z"),
         actorUser: null
+      },
+      {
+        id: "aud_3",
+        action: "ai.quote_draft.generate.success",
+        entityType: "ai_quote_draft",
+        entityId: "ses_1",
+        payloadJson: {
+          provider: "local-deterministic",
+          itemCount: 2,
+          warningCount: 1,
+          fallbackAttemptsCount: 0,
+          userTextLength: 68
+        },
+        createdAt: new Date("2026-07-08T08:00:00.000Z"),
+        actorUser: {
+          name: "Owner Bootstrap",
+          email: "owner@example.com"
+        }
       }
     ]);
 
@@ -109,6 +129,7 @@ describe("audit/service", () => {
         action: true,
         entityType: true,
         entityId: true,
+        payloadJson: true,
         createdAt: true,
         actorUser: {
           select: {
@@ -127,6 +148,7 @@ describe("audit/service", () => {
           entityId: "shl_1",
           actorUserName: "Owner Bootstrap",
           actorUserEmail: "owner@example.com",
+          payloadSummary: [],
           createdAt: "2026-07-08T10:00:00.000Z"
         },
         {
@@ -136,7 +158,23 @@ describe("audit/service", () => {
           entityId: "ses_1",
           actorUserName: null,
           actorUserEmail: null,
+          payloadSummary: [],
           createdAt: "2026-07-08T09:00:00.000Z"
+        },
+        {
+          id: "aud_3",
+          action: "ai.quote_draft.generate.success",
+          entityType: "ai_quote_draft",
+          entityId: "ses_1",
+          actorUserName: "Owner Bootstrap",
+          actorUserEmail: "owner@example.com",
+          payloadSummary: [
+            "Provider: local-deterministic",
+            "Itens sugeridos: 2",
+            "Alertas: 1",
+            "Fallbacks: 0"
+          ],
+          createdAt: "2026-07-08T08:00:00.000Z"
         }
       ]
     });

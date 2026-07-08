@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuthContext } from "@/components/auth/authProvider";
 import { useAiQuoteDraft } from "@/hooks/useAiQuoteDraft";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useQuotes } from "@/hooks/useQuotes";
+import type { QuoteDraftProviderCapabilities } from "@/lib/ai/providers";
 import type { QuoteDraftFallbackReview } from "@/lib/ai/service";
 import type { CustomerResponse } from "@/lib/customers/schemas";
 import type { ProductResponse } from "@/lib/catalog/schemas";
@@ -76,6 +77,17 @@ const initialQuoteAiDraftFormValues: QuoteAiDraftFormValues = {
   budgetMaxCents: ""
 };
 
+function buildAiDraftBriefingExample(): Pick<
+  QuoteAiDraftFormValues,
+  "userText" | "budgetMaxCents"
+> {
+  return {
+    userText:
+      "Preciso de tres notebooks corporativos para equipe comercial, com boa bateria, SSD e garantia para uso em viagens.",
+    budgetMaxCents: "12000,00"
+  };
+}
+
 function buildImportJsonExample(customerId: string): string {
   return JSON.stringify(
     {
@@ -140,8 +152,10 @@ function formatSourceType(value: QuoteDetail["versions"][number]["sourceType"]):
 export default function QuotesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const importJsonSectionRef = useRef<HTMLElement | null>(null);
   const { accessToken, tenant } = useAuthContext();
-  const { generateQuoteDraft } = useAiQuoteDraft(accessToken);
+  const { generateQuoteDraft, getQuoteDraftCapabilities } =
+    useAiQuoteDraft(accessToken);
   const { loadCustomers } = useCustomers(accessToken);
   const { listProducts } = useCatalog(accessToken);
   const {
@@ -175,6 +189,8 @@ export default function QuotesPage() {
   );
   const [aiDraftReview, setAiDraftReview] =
     useState<QuoteDraftFallbackReview | null>(null);
+  const [aiDraftCapabilities, setAiDraftCapabilities] =
+    useState<QuoteDraftProviderCapabilities | null>(null);
   const [copiedShareLinkId, setCopiedShareLinkId] = useState<string | null>(null);
   const [quoteSearch, setQuoteSearch] = useState("");
   const [quoteStatusFilter, setQuoteStatusFilter] =
@@ -191,6 +207,7 @@ export default function QuotesPage() {
   const [isSubmittingRevision, setIsSubmittingRevision] = useState(false);
   const [isImportingQuote, setIsImportingQuote] = useState(false);
   const [isGeneratingAiDraft, setIsGeneratingAiDraft] = useState(false);
+  const [isLoadingAiCapabilities, setIsLoadingAiCapabilities] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isRunningAction, setIsRunningAction] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -199,9 +216,12 @@ export default function QuotesPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [aiDraftMessage, setAiDraftMessage] = useState<string | null>(null);
   const [aiDraftError, setAiDraftError] = useState<string | null>(null);
+  const [aiDraftCapabilitiesError, setAiDraftCapabilitiesError] =
+    useState<string | null>(null);
   const [detailMessage, setDetailMessage] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
   const routedQuoteId = searchParams.get("quoteId");
+  const hasAiDraftProvider = Boolean(aiDraftCapabilities?.isEnabled);
 
   const customerMap = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer])),
@@ -313,6 +333,37 @@ export default function QuotesPage() {
       window.clearTimeout(refreshQuotesWorkspaceTimeout);
     };
   }, [refreshQuotesWorkspace]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    const loadAiCapabilitiesTimeout = window.setTimeout(() => {
+      setIsLoadingAiCapabilities(true);
+      setAiDraftCapabilitiesError(null);
+
+      void getQuoteDraftCapabilities()
+        .then((capabilities) => {
+          setAiDraftCapabilities(capabilities);
+        })
+        .catch((capabilitiesError: unknown) => {
+          setAiDraftCapabilities(null);
+          setAiDraftCapabilitiesError(
+            capabilitiesError instanceof Error
+              ? capabilitiesError.message
+              : "Falha ao verificar disponibilidade do assistente de IA."
+          );
+        })
+        .finally(() => {
+          setIsLoadingAiCapabilities(false);
+        });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(loadAiCapabilitiesTimeout);
+    };
+  }, [accessToken, getQuoteDraftCapabilities]);
 
   useEffect(() => {
     const resetQuotePageTimeout = window.setTimeout(() => {
@@ -517,6 +568,37 @@ export default function QuotesPage() {
     setImportResult(null);
     setImportMessage(null);
     setImportError(null);
+  }
+
+  function scrollToImportJsonSection(): void {
+    importJsonSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  }
+
+  function handleUseAiDraftExample(): void {
+    const example = buildAiDraftBriefingExample();
+
+    setAiDraftForm((currentValues) => ({
+      ...currentValues,
+      customerId: currentValues.customerId || customers[0]?.id || "",
+      userText: example.userText,
+      budgetMaxCents: example.budgetMaxCents
+    }));
+    setAiDraftReview(null);
+    setAiDraftMessage(null);
+    setAiDraftError(null);
+  }
+
+  function handleResetAiDraft(): void {
+    setAiDraftForm({
+      ...initialQuoteAiDraftFormValues,
+      customerId: customers[0]?.id ?? ""
+    });
+    setAiDraftReview(null);
+    setAiDraftMessage(null);
+    setAiDraftError(null);
   }
 
   async function handleGenerateAiDraft(
@@ -1063,10 +1145,56 @@ export default function QuotesPage() {
                 </p>
               </div>
 
-              <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.24em] text-slate-300">
-                Preview V2
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUseAiDraftExample}
+                  disabled={customers.length === 0}
+                  className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Usar briefing exemplo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetAiDraft}
+                  className="inline-flex rounded-full border border-white/10 bg-transparent px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+                >
+                  Limpar IA
+                </button>
+                <span className="inline-flex w-fit rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.24em] text-slate-300">
+                  {isLoadingAiCapabilities
+                    ? "Verificando"
+                    : hasAiDraftProvider
+                      ? `Ativo: ${aiDraftCapabilities?.providers[0]?.providerName}`
+                      : "Sem provider"}
+                </span>
+              </div>
             </div>
+
+            {aiDraftCapabilitiesError ? (
+              <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {aiDraftCapabilitiesError}
+              </div>
+            ) : null}
+
+            {!isLoadingAiCapabilities && !hasAiDraftProvider ? (
+              <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm leading-7 text-amber-50">
+                Nenhum provider de IA está ativo. Para testar em desenvolvimento,
+                configure <code className="font-mono">AI_QUOTE_DRAFT_PROVIDER=local</code>{" "}
+                e reinicie o servidor.
+              </div>
+            ) : null}
+
+            {hasAiDraftProvider ? (
+              <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                Provider pronto para gerar um JSON revisavel sem gravar nada
+                automaticamente.
+                <span className="mt-2 block font-mono text-xs uppercase tracking-[0.18em] text-emerald-100/75">
+                  Prompt {aiDraftCapabilities?.promptVersion} | Schema{" "}
+                  {aiDraftCapabilities?.outputSchemaVersion}
+                </span>
+              </div>
+            ) : null}
 
             <form className="mt-6 grid gap-4" onSubmit={handleGenerateAiDraft}>
               <div className="grid gap-4 md:grid-cols-[1fr_180px]">
@@ -1151,6 +1279,14 @@ export default function QuotesPage() {
                       ))}
                     </ul>
                   ) : null}
+
+                  <button
+                    type="button"
+                    onClick={scrollToImportJsonSection}
+                    className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
+                  >
+                    Revisar JSON gerado
+                  </button>
                 </div>
               ) : null}
 
@@ -1159,6 +1295,8 @@ export default function QuotesPage() {
                 disabled={
                   isGeneratingAiDraft ||
                   isLoadingBootstrap ||
+                  isLoadingAiCapabilities ||
+                  !hasAiDraftProvider ||
                   customers.length === 0 ||
                   aiDraftForm.userText.trim().length < 10
                 }
@@ -1169,7 +1307,10 @@ export default function QuotesPage() {
             </form>
           </article>
 
-          <article className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+          <article
+            ref={importJsonSectionRef}
+            className="scroll-mt-6 rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6"
+          >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">

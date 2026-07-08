@@ -17,17 +17,26 @@ export const dashboardRecentQuoteSchema = z.object({
   updatedAt: z.string()
 });
 
+export const dashboardAiActivitySchema = z.object({
+  draftsThisMonth: z.number().int().nonnegative(),
+  failuresThisMonth: z.number().int().nonnegative(),
+  totalAttemptsThisMonth: z.number().int().nonnegative(),
+  successRate: z.number().min(0).max(1)
+});
+
 export const dashboardSummaryResponseSchema = z.object({
   totalQuotes: z.number().int().nonnegative(),
   quotesThisMonth: z.number().int().nonnegative(),
   activeCustomers: z.number().int().nonnegative(),
   publishedLinks: z.number().int().nonnegative(),
+  aiActivity: dashboardAiActivitySchema,
   topProducts: z.array(dashboardTopProductSchema),
   recentQuotes: z.array(dashboardRecentQuoteSchema)
 });
 
 export type DashboardTopProduct = z.infer<typeof dashboardTopProductSchema>;
 export type DashboardRecentQuote = z.infer<typeof dashboardRecentQuoteSchema>;
+export type DashboardAiActivity = z.infer<typeof dashboardAiActivitySchema>;
 export type DashboardSummaryResponse = z.infer<
   typeof dashboardSummaryResponseSchema
 >;

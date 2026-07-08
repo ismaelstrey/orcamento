@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import type { AiQuoteDraftRequest } from "@/lib/ai/quoteDraft";
+import type { QuoteDraftProviderCapabilities } from "@/lib/ai/providers";
 import type { QuoteDraftFallbackReview } from "@/lib/ai/service";
 
 type ErrorEnvelope = {
@@ -45,6 +46,22 @@ function getRequestHeaders(accessToken: string | null): HeadersInit {
  * Centraliza as chamadas HTTP do assistente de IA para drafts de orçamento.
  */
 export function useAiQuoteDraft(accessToken: string | null) {
+  const getQuoteDraftCapabilities =
+    useCallback(async (): Promise<QuoteDraftProviderCapabilities> => {
+      const response = await fetch("/api/v1/ai/quote-draft", {
+        headers: getRequestHeaders(accessToken)
+      });
+      const data = await parseJson<QuoteDraftProviderCapabilities>(response);
+
+      if (!response.ok) {
+        throw new Error(
+          getErrorMessage(data, "Falha ao verificar assistente de IA.")
+        );
+      }
+
+      return data as QuoteDraftProviderCapabilities;
+    }, [accessToken]);
+
   const generateQuoteDraft = useCallback(
     async (input: AiQuoteDraftRequest): Promise<QuoteDraftFallbackReview> => {
       const response = await fetch("/api/v1/ai/quote-draft", {
@@ -66,6 +83,7 @@ export function useAiQuoteDraft(accessToken: string | null) {
   );
 
   return {
+    getQuoteDraftCapabilities,
     generateQuoteDraft
   };
 }

@@ -7,6 +7,7 @@ export const auditEventResponseSchema = z.object({
   entityId: z.string(),
   actorUserName: z.string().nullable(),
   actorUserEmail: z.string().nullable(),
+  payloadSummary: z.array(z.string()).default([]),
   createdAt: z.string()
 });
 

@@ -111,6 +111,24 @@ function mapRecentQuote(quote: {
   };
 }
 
+function buildAiActivity(input: {
+  draftsThisMonth: number;
+  failuresThisMonth: number;
+}) {
+  const totalAttemptsThisMonth =
+    input.draftsThisMonth + input.failuresThisMonth;
+
+  return {
+    draftsThisMonth: input.draftsThisMonth,
+    failuresThisMonth: input.failuresThisMonth,
+    totalAttemptsThisMonth,
+    successRate:
+      totalAttemptsThisMonth > 0
+        ? Number((input.draftsThisMonth / totalAttemptsThisMonth).toFixed(4))
+        : 0
+  };
+}
+
 /**
  * Retorna os indicadores operacionais mínimos do dashboard do MVP.
  */
@@ -125,6 +143,8 @@ export async function getDashboardSummary(
     quotesThisMonth,
     activeCustomers,
     publishedLinks,
+    aiDraftsThisMonth,
+    aiDraftFailuresThisMonth,
     quotes,
     recentQuotesSource
   ] = await Promise.all([
@@ -150,6 +170,24 @@ export async function getDashboardSummary(
         where: {
           tenantId: authContext.tenantId,
           status: "active"
+        }
+      }),
+      prisma.auditLog.count({
+        where: {
+          tenantId: authContext.tenantId,
+          action: "ai.quote_draft.generate.success",
+          createdAt: {
+            gte: monthStart
+          }
+        }
+      }),
+      prisma.auditLog.count({
+        where: {
+          tenantId: authContext.tenantId,
+          action: "ai.quote_draft.generate.failure",
+          createdAt: {
+            gte: monthStart
+          }
         }
       }),
       prisma.quote.findMany({
@@ -205,6 +243,10 @@ export async function getDashboardSummary(
     quotesThisMonth,
     activeCustomers,
     publishedLinks,
+    aiActivity: buildAiActivity({
+      draftsThisMonth: aiDraftsThisMonth,
+      failuresThisMonth: aiDraftFailuresThisMonth
+    }),
     topProducts: buildTopProducts(quotes),
     recentQuotes: recentQuotesSource
       .map(mapRecentQuote)

@@ -49,13 +49,28 @@ function inferQuantity(userText: string): number {
 function selectCatalogHint(input: AiQuoteDraftRequest) {
   const normalizedBriefing = normalizeText(input.userText);
 
-  return (
-    input.catalogHints.find((hint) =>
-      normalizeText(hint.name)
+  const scoredHints = input.catalogHints
+    .map((hint) => {
+      const nameScore = normalizeText(hint.name)
         .split(/\s+/)
-        .some((token) => token.length > 3 && normalizedBriefing.includes(token))
-    ) ?? input.catalogHints[0]
-  );
+        .filter((token) => token.length > 3 && normalizedBriefing.includes(token))
+        .length;
+      const categoryScore = hint.category
+        ? normalizeText(hint.category)
+            .split(/\s+/)
+            .filter(
+              (token) => token.length > 3 && normalizedBriefing.includes(token)
+            ).length
+        : 0;
+
+      return {
+        hint,
+        score: nameScore + categoryScore * 2
+      };
+    })
+    .sort((leftHint, rightHint) => rightHint.score - leftHint.score);
+
+  return scoredHints[0]?.score ? scoredHints[0].hint : input.catalogHints[0];
 }
 
 function inferCategory(input: AiQuoteDraftRequest): string {

@@ -11,6 +11,12 @@ import { StatCard } from "@/components/ui/statCard";
 import { Surface } from "@/components/ui/surface";
 import { useAudit } from "@/hooks/useAudit";
 import { useDashboard } from "@/hooks/useDashboard";
+import {
+  formatAuditActionLabel,
+  formatAuditEntityLabel,
+  getAuditActionTone
+} from "@/lib/audit/presenter";
+import { classNames } from "@/lib/utils/classNames";
 
 const metricCards = [
   {
@@ -73,13 +79,6 @@ function formatStatus(value: "draft" | "published" | "archived"): string {
   }
 
   return "Arquivado";
-}
-
-function formatAuditAction(action: string): string {
-  return action
-    .split(".")
-    .map((part) => part.replace(/_/g, " "))
-    .join(" / ");
 }
 
 export default function DashboardPage() {
@@ -342,6 +341,26 @@ export default function DashboardPage() {
                     : "Carregando..."}
                 </p>
               </Surface>
+              <Surface as="div" variant="subtle" className="rounded-[1.4rem] p-4">
+                <p className="text-sm text-[var(--muted)]">Atividade do assistente IA</p>
+                <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                  {summary
+                    ? `${formatMetric(summary.aiActivity.draftsThisMonth)} draft(s) no mês`
+                    : "Carregando..."}
+                </p>
+                {summary ? (
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    {formatMetric(summary.aiActivity.totalAttemptsThisMonth)} tentativa(s)
+                    | {Math.round(summary.aiActivity.successRate * 100)}% sucesso
+                  </p>
+                ) : null}
+                {summary?.aiActivity.failuresThisMonth ? (
+                  <p className="mt-2 text-sm text-amber-200">
+                    {formatMetric(summary.aiActivity.failuresThisMonth)} falha(s)
+                    registrada(s)
+                  </p>
+                ) : null}
+              </Surface>
             </div>
           </Surface>
 
@@ -382,26 +401,62 @@ export default function DashboardPage() {
                 </div>
               ) : auditEvents.length ? (
                 <div className="mt-5 grid gap-3">
-                  {auditEvents.map((event) => (
-                    <Surface
-                      key={event.id}
-                      as="div"
-                      variant="subtle"
-                      className="rounded-[1.2rem] p-4"
-                    >
-                      <p className="text-sm font-medium capitalize text-[var(--foreground-strong)]">
-                        {formatAuditAction(event.action)}
-                      </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                        {event.entityType} | {formatDate(event.createdAt)}
-                      </p>
-                      <p className="mt-2 truncate text-sm text-[var(--muted)]">
-                        {event.actorUserName ??
-                          event.actorUserEmail ??
-                          "Sistema ou usuario nao vinculado"}
-                      </p>
-                    </Surface>
-                  ))}
+                  {auditEvents.map((event) => {
+                    const tone = getAuditActionTone(event.action);
+
+                    return (
+                      <Surface
+                        key={event.id}
+                        as="div"
+                        variant="subtle"
+                        className={classNames(
+                          "rounded-[1.2rem] p-4",
+                          tone === "success" &&
+                            "border-[color:rgba(52,211,153,0.24)]",
+                          tone === "warning" &&
+                            "border-[color:rgba(250,204,21,0.24)]"
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-[var(--foreground-strong)]">
+                            {formatAuditActionLabel(event.action)}
+                          </p>
+                          <span
+                            className={classNames(
+                              "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em]",
+                              tone === "success"
+                                ? "border-emerald-300/20 text-emerald-200"
+                                : tone === "warning"
+                                  ? "border-amber-300/20 text-amber-200"
+                                  : "border-[var(--border)] text-[var(--muted)]"
+                            )}
+                          >
+                            {formatAuditEntityLabel(event.entityType)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                          {formatDate(event.createdAt)}
+                        </p>
+                        <p className="mt-2 truncate text-sm text-[var(--muted)]">
+                          {event.actorUserName ??
+                            event.actorUserEmail ??
+                            "Sistema ou usuario nao vinculado"}
+                        </p>
+                        {event.payloadSummary.length ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {event.payloadSummary.map((summaryItem) => (
+                              <span
+                                key={summaryItem}
+                                className="rounded-full border border-[var(--border)] bg-[var(--surface-elevated)] px-2.5 py-1 text-xs text-[var(--muted)]"
+                              >
+                                {summaryItem}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </Surface>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="mt-5">

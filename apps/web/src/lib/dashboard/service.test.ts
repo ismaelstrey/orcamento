@@ -12,6 +12,9 @@ const mockPrisma = vi.hoisted(() => ({
   },
   quoteShareLink: {
     count: vi.fn()
+  },
+  auditLog: {
+    count: vi.fn()
   }
 }));
 
@@ -60,6 +63,9 @@ describe("dashboard/service", () => {
       .mockResolvedValueOnce(3);
     vi.mocked(mockPrisma.customer.count).mockResolvedValue(5);
     vi.mocked(mockPrisma.quoteShareLink.count).mockResolvedValue(2);
+    vi.mocked(mockPrisma.auditLog.count)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(1);
     vi.mocked(mockPrisma.quote.findMany)
       .mockResolvedValueOnce([
         {
@@ -171,6 +177,24 @@ describe("dashboard/service", () => {
         status: "active"
       }
     });
+    expect(mockPrisma.auditLog.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        tenantId: "ten_1",
+        action: "ai.quote_draft.generate.success",
+        createdAt: {
+          gte: new Date("2026-07-01T03:00:00.000Z")
+        }
+      }
+    });
+    expect(mockPrisma.auditLog.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        tenantId: "ten_1",
+        action: "ai.quote_draft.generate.failure",
+        createdAt: {
+          gte: new Date("2026-07-01T03:00:00.000Z")
+        }
+      }
+    });
     expect(mockPrisma.quote.findMany).toHaveBeenNthCalledWith(2, {
       where: {
         tenantId: "ten_1"
@@ -203,6 +227,12 @@ describe("dashboard/service", () => {
       quotesThisMonth: 3,
       activeCustomers: 5,
       publishedLinks: 2,
+      aiActivity: {
+        draftsThisMonth: 4,
+        failuresThisMonth: 1,
+        totalAttemptsThisMonth: 5,
+        successRate: 0.8
+      },
       topProducts: [
         {
           productId: "prd_a",
