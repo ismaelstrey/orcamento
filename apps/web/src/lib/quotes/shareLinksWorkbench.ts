@@ -18,6 +18,7 @@ export interface ShareLinkViewModel {
   canCopy: boolean;
   canRevoke: boolean;
   actionHint: string;
+  disabledActionReason: string | null;
 }
 
 export interface ShareLinkWorkbenchSummary {
@@ -32,9 +33,19 @@ export interface ShareLinkWorkbenchSummary {
   recommendations: string[];
 }
 
+export interface ShareLinkStatusGroup {
+  id: ShareLinkResponse["status"];
+  label: string;
+  description: string;
+  tone: ShareLinkTone;
+  count: number;
+  links: ShareLinkViewModel[];
+}
+
 export interface ShareLinkWorkbench {
   links: ShareLinkViewModel[];
   summary: ShareLinkWorkbenchSummary;
+  statusGroups: ShareLinkStatusGroup[];
 }
 
 function formatDateTime(value: string): string {
@@ -125,7 +136,13 @@ export function buildShareLinkViewModel(
           : "Pode ser compartilhado com o cliente."
         : shareLink.status === "expired"
           ? "Crie um novo link para reabrir acesso publico."
-          : "Link revogado; mantenha apenas para auditoria."
+          : "Link revogado; mantenha apenas para auditoria.",
+    disabledActionReason:
+      shareLink.status === "active"
+        ? null
+        : shareLink.status === "expired"
+          ? "Link expirado nao pode ser aberto, copiado ou revogado novamente."
+          : "Link revogado nao pode ser aberto, copiado ou revogado novamente."
   };
 }
 
@@ -167,6 +184,43 @@ function buildShareLinkRecommendations(input: {
   }
 
   return recommendations;
+}
+
+function buildShareLinkStatusGroups(
+  links: ShareLinkViewModel[]
+): ShareLinkStatusGroup[] {
+  const activeLinks = links.filter((link) => link.status === "active");
+  const expiredLinks = links.filter((link) => link.status === "expired");
+  const revokedLinks = links.filter((link) => link.status === "revoked");
+
+  return [
+    {
+      id: "active",
+      label: "Ativos",
+      description: "Links que ainda podem ser enviados ou abertos pelo cliente.",
+      tone: activeLinks.some((link) => link.tone === "warning")
+        ? "warning"
+        : "success",
+      count: activeLinks.length,
+      links: activeLinks
+    },
+    {
+      id: "expired",
+      label: "Expirados",
+      description: "Acessos encerrados por validade; gere um novo link se precisar reabrir.",
+      tone: "warning",
+      count: expiredLinks.length,
+      links: expiredLinks
+    },
+    {
+      id: "revoked",
+      label: "Revogados",
+      description: "Acessos cancelados manualmente e mantidos para rastreabilidade.",
+      tone: "danger",
+      count: revokedLinks.length,
+      links: revokedLinks
+    }
+  ];
 }
 
 export function buildShareLinkWorkbench(
@@ -218,6 +272,7 @@ export function buildShareLinkWorkbench(
         expiredLinks,
         expiringSoonLinks
       })
-    }
+    },
+    statusGroups: buildShareLinkStatusGroups(links)
   };
 }

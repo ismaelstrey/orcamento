@@ -127,11 +127,12 @@ export const smokePlanFlows: SmokePlanFlow[] = [
     status: "needs_data",
     route: "/public/quotes/[slug]",
     objective: "Conferir acesso publico, expiracao e revogacao em uma sessao sem login.",
-    automationTarget: "E2E com contexto anonimo e fixtures de links ativo/revogado/expirado.",
+    automationTarget:
+      "E2E com contexto anonimo, fixtures de links ativo/revogado/expirado e checagem dos bloqueios na UI.",
     steps: [
       {
         label: "Criar link ativo em um orcamento",
-        expected: "Painel mostra URL, status ativo e diagnostico."
+        expected: "Painel mostra URL, status ativo, diagnostico e acoes habilitadas."
       },
       {
         label: "Abrir link em contexto anonimo",
@@ -139,7 +140,8 @@ export const smokePlanFlows: SmokePlanFlow[] = [
       },
       {
         label: "Revogar ou expirar link",
-        expected: "URL publica deixa de exibir o orcamento."
+        expected:
+          "URL publica deixa de exibir o orcamento e painel mostra acoes bloqueadas com motivo."
       }
     ]
   },

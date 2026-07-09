@@ -10,6 +10,14 @@ describe("config/deliveryPlan", () => {
     expect(deliveryPlan.nextSlices.length).toBeGreaterThanOrEqual(2);
     expect(deliveryPlan.queuedSlices.length).toBeGreaterThanOrEqual(1);
     expect(deliveryPlan.expectedProgressLift).toBeGreaterThan(0);
+    expect(deliveryPlan.completedProgressLift).toBeGreaterThan(0);
+    expect(deliveryPlan.projectedMvpProgress).toBeGreaterThanOrEqual(
+      buildRoadmapSystemSummary().mvpProgress
+    );
+    expect(deliveryPlan.projectedOverallProgress).toBeGreaterThanOrEqual(
+      buildRoadmapSystemSummary().overallProgress
+    );
+    expect(deliveryPlan.runwayBatches.length).toBeGreaterThanOrEqual(2);
     expect(deliveryPlan.cycleLabel).toContain("MVP");
   });
 
@@ -24,5 +32,9 @@ describe("config/deliveryPlan", () => {
       true
     );
     expect(deliveryPlan.immediateSlices).toBe(deliveryPlan.nextSlices.length);
+    expect(deliveryPlan.runwayBatches[0]).toMatchObject({
+      label: "Agora",
+      expectedProgressLift: deliveryPlan.expectedProgressLift
+    });
   });
 });

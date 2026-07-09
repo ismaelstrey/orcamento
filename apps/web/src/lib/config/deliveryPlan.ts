@@ -17,13 +17,24 @@ export interface DeliverySlice {
   acceptanceCriteria: string[];
 }
 
+export interface DeliveryRunwayBatch {
+  label: string;
+  description: string;
+  slices: DeliverySlice[];
+  expectedProgressLift: number;
+}
+
 export interface DeliveryPlanSummary {
   cycleLabel: string;
   completedThisCycle: DeliverySlice[];
   nextSlices: DeliverySlice[];
   queuedSlices: DeliverySlice[];
+  runwayBatches: DeliveryRunwayBatch[];
   immediateSlices: number;
+  completedProgressLift: number;
   expectedProgressLift: number;
+  projectedMvpProgress: number;
+  projectedOverallProgress: number;
   recommendation: string;
 }
 
@@ -57,6 +68,21 @@ const completedThisCycle: DeliverySlice[] = [
       "Detalhe de orcamento abre sem quebrar o layout principal.",
       "URL preserva o modal aberto ao atualizar a pagina."
     ]
+  },
+  {
+    id: "share-link-visual-states",
+    title: "Estados visuais completos de share links",
+    area: "Entrega publica",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Ativo, expirado e revogado exibem diagnostico claro.",
+      "Acoes indisponiveis ficam bloqueadas com motivo visivel.",
+      "Copiar, abrir e revogar mantem feedback consistente por status."
+    ]
   }
 ];
 
@@ -73,20 +99,6 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
       "Login, criacao de orcamento e modal roteado passam em navegador real.",
       "Link publico ativo e revogado sao validados em contexto anonimo.",
       "A pagina /config entra no smoke visual autenticado."
-    ]
-  },
-  {
-    id: "share-link-visual-states",
-    title: "Estados visuais completos de share links",
-    area: "Entrega publica",
-    priority: "p0",
-    effort: "s",
-    impact: "high",
-    progressLift: 3,
-    acceptanceCriteria: [
-      "Ativo, expirado e revogado exibem diagnostico claro.",
-      "Acoes indisponiveis ficam bloqueadas com motivo visivel.",
-      "Copiar e abrir link mantem feedback consistente."
     ]
   },
   {
@@ -137,6 +149,32 @@ function clampProgressLift(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function sumProgressLift(slices: Pick<DeliverySlice, "progressLift">[]): number {
+  return clampProgressLift(
+    slices.reduce((sum, slice) => sum + slice.progressLift, 0)
+  );
+}
+
+function buildRunwayBatches(
+  nextSlices: DeliverySlice[],
+  queuedSlices: DeliverySlice[]
+): DeliveryRunwayBatch[] {
+  return [
+    {
+      label: "Agora",
+      description: "Trabalho recomendado para o proximo ciclo curto.",
+      slices: nextSlices,
+      expectedProgressLift: sumProgressLift(nextSlices)
+    },
+    {
+      label: "Depois",
+      description: "Fila que deve entrar quando os riscos P0 estiverem cobertos.",
+      slices: queuedSlices,
+      expectedProgressLift: sumProgressLift(queuedSlices)
+    }
+  ].filter((batch) => batch.slices.length > 0);
+}
+
 export function buildDeliveryPlanSummary(
   roadmap: Pick<
     RoadmapSystemSummary,
@@ -167,8 +205,13 @@ export function buildDeliveryPlanSummary(
   const queuedSlices = enrichedPlannedSlices.filter(
     (slice) => slice.status === "queued"
   );
-  const expectedProgressLift = clampProgressLift(
-    nextSlices.reduce((sum, slice) => sum + slice.progressLift, 0)
+  const expectedProgressLift = sumProgressLift(nextSlices);
+  const completedProgressLift = sumProgressLift(completedThisCycle);
+  const projectedMvpProgress = clampProgressLift(
+    roadmap.mvpProgress + expectedProgressLift
+  );
+  const projectedOverallProgress = clampProgressLift(
+    roadmap.overallProgress + Math.round(expectedProgressLift * 0.6)
   );
 
   return {
@@ -176,8 +219,12 @@ export function buildDeliveryPlanSummary(
     completedThisCycle,
     nextSlices,
     queuedSlices,
+    runwayBatches: buildRunwayBatches(nextSlices, queuedSlices),
     immediateSlices: nextSlices.length,
+    completedProgressLift,
     expectedProgressLift,
+    projectedMvpProgress,
+    projectedOverallProgress,
     recommendation:
       nextSlices.length > 0
         ? "Priorize os slices P0 antes de abrir novas frentes grandes; eles aumentam confianca de release e reduzem retrabalho visual."

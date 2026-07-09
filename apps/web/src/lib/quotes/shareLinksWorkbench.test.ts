@@ -82,8 +82,10 @@ describe("quotes/shareLinksWorkbench", () => {
     expect(revoked.canCopy).toBe(false);
     expect(revoked.canRevoke).toBe(false);
     expect(revoked.revokedAtLabel).not.toBeNull();
+    expect(revoked.disabledActionReason).toContain("revogado");
     expect(expired.canOpen).toBe(false);
     expect(expired.lifecycleLabel).toBe("acesso encerrado");
+    expect(expired.disabledActionReason).toContain("expirado");
   });
 
   it("resume lista com recomendacoes de risco", () => {
@@ -112,6 +114,22 @@ describe("quotes/shareLinksWorkbench", () => {
       "Existem multiplos links ativos; mantenha somente os links que ainda fazem sentido comercial.",
       "Ha link perto do vencimento; confirme prazo antes de reenviar ao cliente.",
       "Links encerrados continuam visiveis para rastreabilidade e nao devem ser reutilizados."
+    ]);
+    expect(workbench.statusGroups).toMatchObject([
+      {
+        id: "active",
+        count: 2,
+        tone: "warning"
+      },
+      {
+        id: "expired",
+        count: 0
+      },
+      {
+        id: "revoked",
+        count: 1,
+        tone: "danger"
+      }
     ]);
   });
 });

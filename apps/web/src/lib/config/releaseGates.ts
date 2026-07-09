@@ -152,8 +152,9 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
         label: "Link publico ativo, revogado e expirado",
         status: "covered",
         layers: ["service", "unit", "ui"],
-        evidence: "Servico cobre payload seguro, revogado, expirado e painel diagnostica links.",
-        gap: "Falta E2E abrindo URL publica em outra sessao.",
+        evidence:
+          "Servico cobre payload seguro, revogado, expirado e painel agrupa links por status com acoes bloqueadas.",
+        gap: "Falta E2E abrindo URL publica em outra sessao e validando os bloqueios no navegador.",
         nextStep: "Adicionar E2E publico sem token para link ativo/revogado/expirado."
       }
     ]
@@ -271,7 +272,7 @@ export function buildReleaseGateSummary(
         ? "Nenhum gate critico esta sem cobertura inicial; o proximo ganho vem de E2E real e integracao com banco."
         : "Ainda existem gates criticos sem cobertura inicial antes de liberar um MVP mais publico.",
     nextActions: [
-      "Adicionar Playwright para cobrir login, criacao de orcamento e link publico.",
+      "Adicionar Playwright para cobrir login, criacao de orcamento, modal e link publico.",
       "Criar fixture de banco para round-trip exportar/importar e dashboard.",
       "Rodar verificacao visual desktop/mobile nas telas /quotes, /config e pagina publica.",
       "Promover gates cobertos por unit/contract para E2E quando o fluxo estiver estavel."

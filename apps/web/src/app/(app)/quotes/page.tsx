@@ -2888,13 +2888,35 @@ export default function QuotesPage() {
 
                       <div className="mt-4 grid gap-3">
                         {shareLinkWorkbench.links.length ? (
-                          shareLinkWorkbench.links.map((shareLink) => (
-                            <div
-                              key={shareLink.id}
-                              className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
+                          shareLinkWorkbench.statusGroups.map((group) => (
+                            <section
+                              key={group.id}
+                              className={classNames(
+                                "rounded-2xl border p-4",
+                                getShareLinkToneClassName(group.tone)
+                              )}
                             >
-                              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                <div className="min-w-0">
+                              <div>
+                                <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-75">
+                                  {group.count} link(s)
+                                </p>
+                                <h4 className="mt-1 text-base font-semibold text-white">
+                                  {group.label}
+                                </h4>
+                                <p className="mt-1 text-xs leading-5 opacity-85">
+                                  {group.description}
+                                </p>
+                              </div>
+
+                              <div className="mt-3 grid gap-3">
+                                {group.links.length ? (
+                                  group.links.map((shareLink) => (
+                                    <div
+                                      key={shareLink.id}
+                                      className="rounded-2xl border border-white/10 bg-[#0b1322]/70 p-4"
+                                    >
+                                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                                        <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="text-sm font-medium text-white">
                                       {shareLink.slug}
@@ -2926,14 +2948,19 @@ export default function QuotesPage() {
                                   <p className="mt-2 text-xs leading-5 text-slate-300">
                                     {shareLink.actionHint}
                                   </p>
-                                </div>
+                                  {shareLink.disabledActionReason ? (
+                                    <p className="mt-2 rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2 text-xs leading-5 text-slate-300">
+                                      {shareLink.disabledActionReason}
+                                    </p>
+                                  ) : null}
+                                        </div>
 
-                                <div className="flex flex-wrap gap-2">
+                                        <div className="flex flex-wrap gap-2 lg:justify-end">
                                   <button
                                     type="button"
                                     onClick={() => void handleCopyShareLink(shareLink)}
                                     disabled={!shareLink.canCopy}
-                                    className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
+                                    className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-45"
                                   >
                                     {copiedShareLinkId === shareLink.id
                                       ? "Copiado"
@@ -2947,26 +2974,34 @@ export default function QuotesPage() {
                                     className={classNames(
                                       "inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15",
                                       !shareLink.canOpen &&
-                                        "pointer-events-none opacity-50"
+                                        "pointer-events-none opacity-45"
                                     )}
                                   >
                                     Abrir
                                   </a>
-                                  {shareLink.canRevoke ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        void handleRevokeShareLink(shareLink.id)
-                                      }
-                                      disabled={isRunningAction}
-                                      className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                      Revogar
-                                    </button>
-                                  ) : null}
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              void handleRevokeShareLink(shareLink.id)
+                                            }
+                                            disabled={
+                                              isRunningAction || !shareLink.canRevoke
+                                            }
+                                            className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-45"
+                                          >
+                                            Revogar
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="rounded-2xl border border-white/10 bg-slate-950/35 px-4 py-3 text-sm leading-6 opacity-80">
+                                    Nenhum link nesta categoria.
+                                  </p>
+                                )}
                                 </div>
-                              </div>
-                            </div>
+                            </section>
                           ))
                         ) : (
                           <p className="text-sm leading-7 text-slate-300">

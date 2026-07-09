@@ -123,9 +123,9 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "pdf-share",
         label: "PDF e link publico",
         status: "in_progress",
-        progress: 84,
+        progress: 87,
         evidence:
-          "PDF por versao, modal roteado, share link, revogacao, pagina publica, diagnostico de links e testes de ciclo publico.",
+          "PDF por versao, modal roteado, share link, revogacao, pagina publica, diagnostico por status e testes de ciclo publico.",
         nextStep: "Melhorar layout do PDF e validar o fluxo completo com E2E."
       },
       {
@@ -156,9 +156,9 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "navigation-ux",
         label: "Navegacao e layout",
         status: "in_progress",
-        progress: 78,
+        progress: 80,
         evidence:
-          "Sidebar minimalista, abas por area, modal roteado em orcamentos e pagina /config navegavel.",
+          "Sidebar minimalista, abas por area, modal roteado em orcamentos, links publicos agrupados por status e pagina /config navegavel.",
         nextStep: "Validar responsividade visual com navegador e fluxo real."
       },
       {
@@ -424,7 +424,7 @@ export function buildRoadmapSystemSummary(
     ],
     nextRecommendedSlices: [
       "Instalar Playwright e executar E2E enxuto: login, criar orcamento, versionar, gerar PDF e publicar link.",
-      "Validar visualmente o painel de share links com estados ativo, expirado e revogado.",
+      "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Configurar provider IA real com limites, auditoria de custo e fallback controlado.",
       "Iniciar modelo de pricing intelligence com lojas e ofertas importadas manualmente."

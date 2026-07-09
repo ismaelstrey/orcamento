@@ -333,6 +333,9 @@ export default function ConfigPage() {
                 <p className="mt-2 text-3xl font-semibold text-white">
                   {deliveryPlan.completedThisCycle.length}
                 </p>
+                <p className="mt-1 text-xs leading-5 text-emerald-50/80">
+                  +{deliveryPlan.completedProgressLift}% ja refletido no ciclo.
+                </p>
               </div>
               <div className="rounded-2xl border border-amber-300/20 bg-amber-400/10 p-4 text-amber-50">
                 <p className="font-mono text-xs uppercase tracking-[0.2em] text-amber-100/80">
@@ -341,11 +344,74 @@ export default function ConfigPage() {
                 <p className="mt-2 text-3xl font-semibold text-white">
                   +{deliveryPlan.expectedProgressLift}%
                 </p>
+                <p className="mt-1 text-xs leading-5 text-amber-50/80">
+                  Projeta MVP em {deliveryPlan.projectedMvpProgress}%.
+                </p>
               </div>
             </div>
           </div>
 
           <div className="grid gap-4">
+            <div className="rounded-2xl border border-sky-300/20 bg-slate-950/35 p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200/80">
+                    Projecao apos proximo lote
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold text-white">
+                    MVP {roadmap.mvpProgress}% {"->"}{" "}
+                    {deliveryPlan.projectedMvpProgress}%
+                  </h3>
+                  <p className="mt-1 text-sm leading-6 text-slate-300">
+                    Produto completo {roadmap.overallProgress}% {"->"}{" "}
+                    {deliveryPlan.projectedOverallProgress}% se os slices imediatos
+                    forem concluidos.
+                  </p>
+                </div>
+                <div className="min-w-[180px]">
+                  <ProgressBar value={deliveryPlan.projectedMvpProgress} />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              {deliveryPlan.runwayBatches.map((batch) => (
+                <article
+                  key={batch.label}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-mono text-xs uppercase tracking-[0.22em] text-slate-400">
+                        {batch.label}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-300">
+                        {batch.description}
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 font-mono text-xs text-sky-100">
+                      +{batch.expectedProgressLift}%
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {batch.slices.map((slice) => (
+                      <div
+                        key={`${batch.label}-${slice.id}`}
+                        className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2"
+                      >
+                        <p className="text-sm font-medium text-white">
+                          {slice.title}
+                        </p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+                          {slice.area} | {getDeliveryPriorityLabel(slice.priority)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+
             <div className="grid gap-3 lg:grid-cols-2">
               {deliveryPlan.completedThisCycle.map((slice) => (
                 <article

@@ -2,6 +2,42 @@ import { AuthError } from "@orcamento/auth";
 import { ZodError } from "zod";
 import { AiDraftGenerationError } from "@/lib/ai/service";
 
+function getErrorRecord(error: unknown): Record<string, unknown> | null {
+  return error && typeof error === "object"
+    ? (error as Record<string, unknown>)
+    : null;
+}
+
+function getNestedCause(error: unknown): unknown {
+  const record = getErrorRecord(error);
+
+  return record && "cause" in record ? record.cause : undefined;
+}
+
+function isPrismaDatabaseUnavailableError(error: unknown): boolean {
+  const record = getErrorRecord(error);
+  const code = record?.code;
+  const message =
+    error instanceof Error ? error.message : String(record?.message ?? "");
+
+  if (code === "P1001" || code === "P1002") {
+    return true;
+  }
+
+  if (
+    message.includes("Can't reach database server") ||
+    message.includes("Timed out fetching a new connection") ||
+    message.includes("ECONNREFUSED") ||
+    message.includes("ETIMEDOUT")
+  ) {
+    return true;
+  }
+
+  const cause = getNestedCause(error);
+
+  return cause ? isPrismaDatabaseUnavailableError(cause) : false;
+}
+
 /**
  * Normaliza erros conhecidos para o envelope HTTP da aplicação.
  */
@@ -54,6 +90,19 @@ export function toErrorResponse(error: unknown): {
         error: error.code,
         details: {
           message: error.message
+        }
+      }
+    };
+  }
+
+  if (isPrismaDatabaseUnavailableError(error)) {
+    return {
+      status: 503,
+      body: {
+        error: "database_unavailable",
+        details: {
+          message:
+            "Banco de dados indisponivel. Verifique a conexao com o Postgres/Neon e as variaveis DATABASE_URL e DIRECT_URL."
         }
       }
     };
