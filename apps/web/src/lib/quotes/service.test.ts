@@ -16,6 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
   quoteShareLink: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
     findMany: vi.fn()
@@ -58,7 +59,9 @@ import {
   exportQuoteToJson,
   generateQuotePdf,
   getPublicQuoteBySlug,
-  importQuoteFromJson
+  importQuoteFromJson,
+  listQuoteShareLinks,
+  revokeQuoteShareLink
 } from "./service";
 
 const authContext: AuthContext = {
@@ -313,6 +316,191 @@ describe("quotes/service", () => {
     expect(mockPrisma.quoteShareLink.update).toHaveBeenCalledWith({
       where: {
         id: "sql_1"
+      },
+      data: {
+        status: "expired"
+      }
+    });
+  });
+
+  it("bloqueia acesso publico a share link revogado sem expor payload", async () => {
+    vi.mocked(mockPrisma.quoteShareLink.findUnique).mockResolvedValue({
+      id: "sql_revogado",
+      tenantId: "ten_1",
+      quoteId: "quo_1",
+      quoteVersionId: "qv_1",
+      slug: "q_revogado",
+      status: "revoked",
+      expiresAt: null,
+      revokedAt: new Date("2026-07-09T10:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-09T10:00:00.000Z"),
+      quote: {
+        id: "quo_1",
+        tenantId: "ten_1",
+        customerId: "cus_1",
+        title: "Orcamento revogado",
+        status: "draft",
+        publicNotes: "Nao deve aparecer",
+        internalNotes: "segredo",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+        customer: {
+          id: "cus_1",
+          tenantId: "ten_1",
+          name: "Cliente XPTO",
+          email: null,
+          phone: null,
+          document: null,
+          notes: null,
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2026-01-02T00:00:00.000Z")
+        }
+      },
+      quoteVersion: {
+        id: "qv_1",
+        quoteId: "quo_1",
+        versionNumber: 1,
+        label: null,
+        currency: "BRL",
+        subtotalCents: 2000,
+        discountCents: 0,
+        totalCents: 2000,
+        sourceType: "manual",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        items: []
+      }
+    });
+
+    await expect(getPublicQuoteBySlug("q_revogado")).rejects.toMatchObject({
+      code: "share_link_revoked",
+      statusCode: 410
+    });
+
+    expect(mockPrisma.quoteShareLink.update).not.toHaveBeenCalled();
+  });
+
+  it("revoga share link ativo e registra auditoria operacional", async () => {
+    vi.mocked(mockPrisma.quote.findFirst).mockResolvedValue({
+      id: "quo_1"
+    });
+    vi.mocked(mockPrisma.quoteShareLink.findFirst).mockResolvedValue({
+      id: "sql_1",
+      tenantId: "ten_1",
+      quoteId: "quo_1",
+      quoteVersionId: "qv_1",
+      slug: "q_ativo",
+      status: "active",
+      expiresAt: null,
+      revokedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z")
+    });
+    vi.mocked(mockPrisma.quoteShareLink.update).mockResolvedValue({
+      id: "sql_1",
+      tenantId: "ten_1",
+      quoteId: "quo_1",
+      quoteVersionId: "qv_1",
+      slug: "q_ativo",
+      status: "revoked",
+      expiresAt: null,
+      revokedAt: new Date("2026-07-09T10:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-07-09T10:00:00.000Z")
+    });
+
+    const result = await revokeQuoteShareLink(
+      authContext,
+      "quo_1",
+      "sql_1",
+      "http://localhost:3000"
+    );
+
+    expect(result).toMatchObject({
+      id: "sql_1",
+      quoteId: "quo_1",
+      quoteVersionId: "qv_1",
+      slug: "q_ativo",
+      status: "revoked",
+      url: "http://localhost:3000/public/quotes/q_ativo"
+    });
+    expect(mockPrisma.quoteShareLink.update).toHaveBeenCalledWith({
+      where: {
+        id: "sql_1"
+      },
+      data: {
+        status: "revoked",
+        revokedAt: expect.any(Date)
+      }
+    });
+    expect(mockLogAuditEvent).toHaveBeenCalledWith({
+      tenantId: "ten_1",
+      actorUserId: "usr_1",
+      action: "quote_share_link.revoke",
+      entityType: "quote_share_link",
+      entityId: "sql_1",
+      payloadJson: {
+        quoteId: "quo_1",
+        quoteVersionId: "qv_1",
+        slug: "q_ativo"
+      }
+    });
+  });
+
+  it("lista share links sincronizando expirados antes de montar a resposta privada", async () => {
+    vi.mocked(mockPrisma.quote.findFirst).mockResolvedValue({
+      id: "quo_1"
+    });
+    vi.mocked(mockPrisma.quoteShareLink.findMany).mockResolvedValue([
+      {
+        id: "sql_expirando",
+        tenantId: "ten_1",
+        quoteId: "quo_1",
+        quoteVersionId: "qv_1",
+        slug: "q_expirando",
+        status: "active",
+        expiresAt: new Date("2020-01-01T00:00:00.000Z"),
+        revokedAt: null,
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-02T00:00:00.000Z")
+      }
+    ]);
+    vi.mocked(mockPrisma.quoteShareLink.update).mockResolvedValue({
+      id: "sql_expirando",
+      tenantId: "ten_1",
+      quoteId: "quo_1",
+      quoteVersionId: "qv_1",
+      slug: "q_expirando",
+      status: "expired",
+      expiresAt: new Date("2020-01-01T00:00:00.000Z"),
+      revokedAt: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-02T00:00:00.000Z")
+    });
+
+    const result = await listQuoteShareLinks(
+      authContext,
+      "quo_1",
+      "http://localhost:3000"
+    );
+
+    expect(result).toEqual([
+      {
+        id: "sql_expirando",
+        quoteId: "quo_1",
+        quoteVersionId: "qv_1",
+        slug: "q_expirando",
+        url: "http://localhost:3000/public/quotes/q_expirando",
+        status: "expired",
+        expiresAt: "2020-01-01T00:00:00.000Z",
+        revokedAt: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-02T00:00:00.000Z"
+      }
+    ]);
+    expect(mockPrisma.quoteShareLink.update).toHaveBeenCalledWith({
+      where: {
+        id: "sql_expirando"
       },
       data: {
         status: "expired"

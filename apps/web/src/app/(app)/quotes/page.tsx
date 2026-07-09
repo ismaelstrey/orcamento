@@ -10,10 +10,25 @@ import { useCatalog } from "@/hooks/useCatalog";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useQuotes } from "@/hooks/useQuotes";
 import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
+import {
+  buildAiDraftWorkbench,
+  parseAiDraftBudgetInput,
+  type AiDraftChecklistStatus,
+  type AiDraftReadinessTone,
+  type AiDraftSuggestionPriority
+} from "@/lib/ai/workbench";
 import type { QuoteDraftProviderCapabilities } from "@/lib/ai/providers";
 import type { QuoteDraftFallbackReview } from "@/lib/ai/service";
 import type { CustomerResponse } from "@/lib/customers/schemas";
 import type { ProductResponse } from "@/lib/catalog/schemas";
+import {
+  buildQuoteImportJsonWorkbench,
+  type QuoteImportJsonTone
+} from "@/lib/quotes/importWorkbench";
+import {
+  buildShareLinkWorkbench,
+  type ShareLinkTone
+} from "@/lib/quotes/shareLinksWorkbench";
 import type {
   CreateQuoteRequest,
   CreateQuoteVersionRequest,
@@ -192,6 +207,80 @@ function getQuoteRiskToneClassName(tone: QuoteRiskTone): string {
   return "border-white/10 text-slate-400";
 }
 
+function getAiDraftReadinessClassName(tone: AiDraftReadinessTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/25 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (tone === "warning") {
+    return "border-amber-300/25 bg-amber-400/10 text-amber-100";
+  }
+
+  if (tone === "danger") {
+    return "border-rose-300/25 bg-rose-500/10 text-rose-100";
+  }
+
+  return "border-white/10 bg-white/5 text-slate-300";
+}
+
+function getAiDraftChecklistClassName(status: AiDraftChecklistStatus): string {
+  if (status === "done") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (status === "warning") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+}
+
+function getAiDraftSuggestionClassName(
+  priority: AiDraftSuggestionPriority
+): string {
+  if (priority === "high") {
+    return "border-sky-300/20 bg-sky-400/10 text-sky-100";
+  }
+
+  if (priority === "medium") {
+    return "border-cyan-300/20 bg-cyan-400/10 text-cyan-100";
+  }
+
+  return "border-white/10 bg-white/5 text-slate-300";
+}
+
+function getQuoteImportJsonToneClassName(tone: QuoteImportJsonTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (tone === "warning") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  if (tone === "danger") {
+    return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+  }
+
+  return "border-white/10 bg-white/5 text-slate-300";
+}
+
+function getShareLinkToneClassName(tone: ShareLinkTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (tone === "warning") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  if (tone === "danger") {
+    return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+  }
+
+  return "border-white/10 bg-white/5 text-slate-300";
+}
+
 export default function QuotesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -272,6 +361,42 @@ export default function QuotesPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const routedQuoteId = searchParams.get("quoteId");
   const hasAiDraftProvider = Boolean(aiDraftCapabilities?.isEnabled);
+  const aiDraftWorkbench = useMemo(
+    () =>
+      buildAiDraftWorkbench({
+        customerId: aiDraftForm.customerId,
+        userText: aiDraftForm.userText,
+        budgetMaxCents: aiDraftForm.budgetMaxCents,
+        hasProvider: hasAiDraftProvider,
+        isLoadingCapabilities: isLoadingAiCapabilities,
+        capabilitiesError: aiDraftCapabilitiesError,
+        customerCount: customers.length,
+        productCount: products.length
+      }),
+    [
+      aiDraftCapabilitiesError,
+      aiDraftForm.budgetMaxCents,
+      aiDraftForm.customerId,
+      aiDraftForm.userText,
+      customers.length,
+      hasAiDraftProvider,
+      isLoadingAiCapabilities,
+      products.length
+    ]
+  );
+  const importJsonWorkbench = useMemo(
+    () =>
+      buildQuoteImportJsonWorkbench({
+        jsonText: importJsonText,
+        isFromAi: isImportJsonFromAi,
+        customerCount: customers.length
+      }),
+    [customers.length, importJsonText, isImportJsonFromAi]
+  );
+  const shareLinkWorkbench = useMemo(
+    () => buildShareLinkWorkbench(shareLinks),
+    [shareLinks]
+  );
 
   const customerMap = useMemo(
     () => new Map(customers.map((customer) => [customer.id, customer])),
@@ -742,9 +867,9 @@ export default function QuotesPage() {
 
     try {
       const normalizedBudget = aiDraftForm.budgetMaxCents.trim();
-      const budgetMaxCents = normalizedBudget
-        ? Math.round(Number(normalizedBudget.replace(",", ".")) * 100)
-        : undefined;
+      const parsedBudgetMaxCents = parseAiDraftBudgetInput(normalizedBudget);
+      const budgetMaxCents =
+        parsedBudgetMaxCents === null ? undefined : parsedBudgetMaxCents;
 
       if (
         budgetMaxCents !== undefined &&
@@ -930,7 +1055,10 @@ export default function QuotesPage() {
     }
   }
 
-  async function handleCopyShareLink(shareLink: ShareLinkResponse): Promise<void> {
+  async function handleCopyShareLink(shareLink: {
+    id: string;
+    url: string;
+  }): Promise<void> {
     setDetailError(null);
     setDetailMessage(null);
 
@@ -1358,6 +1486,215 @@ export default function QuotesPage() {
               </div>
             ) : null}
 
+            <div className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+              <div
+                className={classNames(
+                  "rounded-2xl border p-5",
+                  getAiDraftReadinessClassName(aiDraftWorkbench.readiness.tone)
+                )}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] opacity-75">
+                      Prontidao IA
+                    </p>
+                    <h3 className="mt-2 text-2xl font-semibold text-white">
+                      {aiDraftWorkbench.readiness.label}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 opacity-85">
+                      {aiDraftWorkbench.readiness.description}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-slate-950/45 px-4 py-3 text-right">
+                    <p className="font-mono text-3xl font-semibold text-white">
+                      {aiDraftWorkbench.readiness.score}
+                    </p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-70">
+                      score
+                    </p>
+                  </div>
+                </div>
+
+                {aiDraftWorkbench.readiness.blockers.length ? (
+                  <div className="mt-4 grid gap-2">
+                    {aiDraftWorkbench.readiness.blockers.map((blocker) => (
+                      <p
+                        key={blocker}
+                        className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm leading-6 text-white/90"
+                      >
+                        {blocker}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm leading-6 text-white/85">
+                    Sem bloqueios. A geracao ainda abre um JSON revisavel antes de
+                    importar.
+                  </p>
+                )}
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200/80">
+                      Leitura do briefing
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">
+                      {aiDraftWorkbench.preview.promptExcerpt}
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit rounded-full border border-white/10 bg-slate-950/40 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.18em] text-slate-300">
+                    {aiDraftWorkbench.metrics.densityLabel}
+                  </span>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Palavras
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-white">
+                      {aiDraftWorkbench.metrics.words}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Budget
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-white">
+                      {aiDraftWorkbench.budget.label}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Catalogo
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-white">
+                      {aiDraftWorkbench.preview.catalogHintsLabel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span
+                    className={classNames(
+                      "rounded-full border px-3 py-1 text-xs",
+                      aiDraftWorkbench.metrics.hasQuantitySignal
+                        ? "border-emerald-300/20 text-emerald-200"
+                        : "border-white/10 text-slate-400"
+                    )}
+                  >
+                    Quantidade
+                  </span>
+                  <span
+                    className={classNames(
+                      "rounded-full border px-3 py-1 text-xs",
+                      aiDraftWorkbench.metrics.hasUseCaseSignal
+                        ? "border-emerald-300/20 text-emerald-200"
+                        : "border-white/10 text-slate-400"
+                    )}
+                  >
+                    Uso
+                  </span>
+                  <span
+                    className={classNames(
+                      "rounded-full border px-3 py-1 text-xs",
+                      aiDraftWorkbench.metrics.hasConstraintSignal
+                        ? "border-emerald-300/20 text-emerald-200"
+                        : "border-white/10 text-slate-400"
+                    )}
+                  >
+                    Restricoes
+                  </span>
+                  <span
+                    className={classNames(
+                      "rounded-full border px-3 py-1 text-xs",
+                      aiDraftWorkbench.metrics.hasUrgencySignal
+                        ? "border-amber-300/20 text-amber-200"
+                        : "border-white/10 text-slate-400"
+                    )}
+                  >
+                    Prazo
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr]">
+              <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200/80">
+                  Checklist
+                </p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {aiDraftWorkbench.checklist.map((item) => (
+                    <div
+                      key={item.id}
+                      className={classNames(
+                        "rounded-xl border p-3",
+                        getAiDraftChecklistClassName(item.status)
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-white">{item.label}</p>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-70">
+                          {item.status === "done"
+                            ? "ok"
+                            : item.status === "warning"
+                              ? "atencao"
+                              : "ajuste"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 opacity-85">
+                        {item.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200/80">
+                  Sugestoes de melhoria
+                </p>
+                <div className="mt-4 grid gap-2">
+                  {aiDraftWorkbench.suggestions.length ? (
+                    aiDraftWorkbench.suggestions.map((suggestion) => (
+                      <div
+                        key={suggestion.id}
+                        className={classNames(
+                          "rounded-xl border p-3",
+                          getAiDraftSuggestionClassName(suggestion.priority)
+                        )}
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-medium text-white">
+                              {suggestion.title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 opacity-85">
+                              {suggestion.description}
+                            </p>
+                          </div>
+                          <span className="inline-flex w-fit rounded-full border border-white/10 bg-slate-950/35 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] opacity-75">
+                            {suggestion.priority}
+                          </span>
+                        </div>
+                        <p className="mt-2 rounded-lg border border-white/10 bg-slate-950/35 px-3 py-2 text-xs leading-5 text-white/85">
+                          {suggestion.snippet}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="rounded-xl border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-sm leading-6 text-emerald-100">
+                      Briefing com sinais suficientes. Voce pode gerar e revisar o
+                      JSON.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <form className="mt-6 grid gap-4" onSubmit={handleGenerateAiDraft}>
               <div className="grid gap-4 md:grid-cols-[1fr_180px]">
                 <label className="grid gap-2 text-sm text-slate-200">
@@ -1537,6 +1874,112 @@ export default function QuotesPage() {
               </div>
             ) : null}
 
+            <div className="mt-5 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+              <div
+                className={classNames(
+                  "rounded-2xl border p-5",
+                  getQuoteImportJsonToneClassName(importJsonWorkbench.tone)
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] opacity-75">
+                      Pre-validacao
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      {importJsonWorkbench.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 opacity-85">
+                      {importJsonWorkbench.description}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] opacity-75">
+                    {importJsonWorkbench.preview.sourceLabel}
+                  </span>
+                </div>
+
+                {importJsonWorkbench.issues.length ? (
+                  <div className="mt-4 grid gap-2">
+                    {importJsonWorkbench.issues.map((issue) => (
+                      <p
+                        key={`${issue.path}-${issue.message}`}
+                        className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm leading-6 text-white/90"
+                      >
+                        <span className="font-mono text-xs uppercase tracking-[0.16em] opacity-70">
+                          {issue.path}
+                        </span>{" "}
+                        {issue.message}
+                      </p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-sm leading-6 text-white/85">
+                    Sem pendencias locais para esse payload.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-sky-200/80">
+                  Resumo do payload
+                </p>
+                <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                  {importJsonWorkbench.metrics.map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="rounded-xl border border-white/10 bg-slate-950/35 p-3"
+                    >
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                        {metric.label}
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-white">
+                        {metric.value}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {metric.helper}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 grid gap-2 rounded-xl border border-white/10 bg-slate-950/35 p-4 text-sm text-slate-300 md:grid-cols-2">
+                  <p>
+                    <span className="block text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Cliente
+                    </span>
+                    <span className="mt-1 block text-white">
+                      {importJsonWorkbench.preview.customerId ?? "Nao informado"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="block text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Categoria
+                    </span>
+                    <span className="mt-1 block text-white">
+                      {importJsonWorkbench.preview.category ?? "Nao informado"}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="block text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Moeda / budget
+                    </span>
+                    <span className="mt-1 block text-white">
+                      {importJsonWorkbench.preview.currency ?? "BRL"} |{" "}
+                      {importJsonWorkbench.preview.budgetLabel}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="block text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Itens
+                    </span>
+                    <span className="mt-1 block text-white">
+                      {importJsonWorkbench.preview.itemSummary}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <form className="mt-6 grid gap-4" onSubmit={handleImportQuoteJson}>
               <label className="grid gap-2 text-sm text-slate-200">
                 <span>Payload JSON</span>
@@ -1603,7 +2046,7 @@ export default function QuotesPage() {
                   isImportingQuote ||
                   isLoadingBootstrap ||
                   customers.length === 0 ||
-                  importJsonText.trim().length === 0
+                  !importJsonWorkbench.canSubmit
                 }
                 className="inline-flex w-fit rounded-full border border-sky-300/20 bg-sky-400/10 px-5 py-3 font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -2374,26 +2817,114 @@ export default function QuotesPage() {
 
                   <div className="grid gap-5">
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
-                        Share links
-                      </p>
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                            Share links
+                          </p>
+                          <h3 className="mt-2 text-lg font-semibold text-white">
+                            {shareLinkWorkbench.summary.headline}
+                          </h3>
+                        </div>
+                        <span
+                          className={classNames(
+                            "inline-flex w-fit rounded-full border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em]",
+                            getShareLinkToneClassName(
+                              shareLinkWorkbench.summary.riskTone
+                            )
+                          )}
+                        >
+                          {shareLinkWorkbench.summary.activeLinks} ativo(s)
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                        <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            Total
+                          </p>
+                          <p className="mt-1 text-lg font-semibold text-white">
+                            {shareLinkWorkbench.summary.totalLinks}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            Ativos
+                          </p>
+                          <p className="mt-1 text-lg font-semibold text-emerald-100">
+                            {shareLinkWorkbench.summary.activeLinks}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            Expirados
+                          </p>
+                          <p className="mt-1 text-lg font-semibold text-amber-100">
+                            {shareLinkWorkbench.summary.expiredLinks}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                            Revogados
+                          </p>
+                          <p className="mt-1 text-lg font-semibold text-rose-100">
+                            {shareLinkWorkbench.summary.revokedLinks}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-2">
+                        {shareLinkWorkbench.summary.recommendations.map(
+                          (recommendation) => (
+                            <p
+                              key={recommendation}
+                              className="rounded-xl border border-sky-300/15 bg-sky-400/10 px-3 py-2 text-sm leading-6 text-sky-50"
+                            >
+                              {recommendation}
+                            </p>
+                          )
+                        )}
+                      </div>
+
                       <div className="mt-4 grid gap-3">
-                        {shareLinks.length ? (
-                          shareLinks.map((shareLink) => (
+                        {shareLinkWorkbench.links.length ? (
+                          shareLinkWorkbench.links.map((shareLink) => (
                             <div
                               key={shareLink.id}
                               className="rounded-2xl border border-white/10 bg-[#0b1322] p-4"
                             >
                               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-white">
-                                    {shareLink.slug}
-                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-medium text-white">
+                                      {shareLink.slug}
+                                    </p>
+                                    <span
+                                      className={classNames(
+                                        "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]",
+                                        getShareLinkToneClassName(shareLink.tone)
+                                      )}
+                                    >
+                                      {shareLink.statusLabel}
+                                    </span>
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                                      {shareLink.lifecycleLabel}
+                                    </span>
+                                  </div>
                                   <p className="mt-2 truncate rounded-full border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-slate-300">
                                     {shareLink.url}
                                   </p>
-                                  <p className="mt-2 text-xs uppercase tracking-[0.22em] text-slate-400">
-                                    Status: {shareLink.status}
+                                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                                    Criado em {shareLink.createdAtLabel} | Expira:{" "}
+                                    {shareLink.expiresAtLabel}
+                                  </p>
+                                  {shareLink.revokedAtLabel ? (
+                                    <p className="mt-1 text-xs leading-5 text-rose-200">
+                                      Revogado em {shareLink.revokedAtLabel}
+                                    </p>
+                                  ) : null}
+                                  <p className="mt-2 text-xs leading-5 text-slate-300">
+                                    {shareLink.actionHint}
                                   </p>
                                 </div>
 
@@ -2401,6 +2932,7 @@ export default function QuotesPage() {
                                   <button
                                     type="button"
                                     onClick={() => void handleCopyShareLink(shareLink)}
+                                    disabled={!shareLink.canCopy}
                                     className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20"
                                   >
                                     {copiedShareLinkId === shareLink.id
@@ -2411,11 +2943,16 @@ export default function QuotesPage() {
                                     href={shareLink.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                                    aria-disabled={!shareLink.canOpen}
+                                    className={classNames(
+                                      "inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15",
+                                      !shareLink.canOpen &&
+                                        "pointer-events-none opacity-50"
+                                    )}
                                   >
                                     Abrir
                                   </a>
-                                  {shareLink.status === "active" ? (
+                                  {shareLink.canRevoke ? (
                                     <button
                                       type="button"
                                       onClick={() =>

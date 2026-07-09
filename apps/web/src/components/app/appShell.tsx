@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme/themeToggle";
 import { useAuthContext } from "@/components/auth/authProvider";
 import { classNames } from "@/lib/utils/classNames";
 
-type NavIcon = "dashboard" | "customers" | "catalog" | "quotes";
+type NavIcon = "dashboard" | "customers" | "catalog" | "quotes" | "config";
 
 const navigationItems = [
   {
@@ -33,6 +33,12 @@ const navigationItems = [
     label: "Orcamentos",
     description: "Propostas e versoes",
     icon: "quotes"
+  },
+  {
+    href: "/config",
+    label: "Config",
+    description: "Roadmap e saude",
+    icon: "config"
   }
 ] satisfies Array<{
   href: string;
@@ -83,6 +89,15 @@ function Icon({ name }: { name: NavIcon }) {
         <path d="M5 7.5 12 4l7 3.5-7 3.5-7-3.5Z" />
         <path d="M5 12l7 3.5 7-3.5" />
         <path d="M5 16.5 12 20l7-3.5" />
+      </svg>
+    );
+  }
+
+  if (name === "config") {
+    return (
+      <svg {...props}>
+        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+        <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.1 2.1 0 0 1-2.97 2.97l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.66V21a2.1 2.1 0 0 1-4.2 0v-.07a1.8 1.8 0 0 0-1.1-1.66 1.8 1.8 0 0 0-1.98.36l-.05.05a2.1 2.1 0 0 1-2.97-2.97l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.66-1.1H2.9a2.1 2.1 0 0 1 0-4.2h.04A1.8 1.8 0 0 0 4.6 8a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2.1 2.1 0 0 1 7.16 3l.05.05A1.8 1.8 0 0 0 9.2 3.4 1.8 1.8 0 0 0 10.3 1.8V1.7a2.1 2.1 0 0 1 4.2 0v.1a1.8 1.8 0 0 0 1.1 1.6 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.1 2.1 0 0 1 2.97 2.97l-.05.05A1.8 1.8 0 0 0 19.4 8a1.8 1.8 0 0 0 1.66 1.7h.04a2.1 2.1 0 0 1 0 4.2h-.04A1.8 1.8 0 0 0 19.4 15Z" />
       </svg>
     );
   }
