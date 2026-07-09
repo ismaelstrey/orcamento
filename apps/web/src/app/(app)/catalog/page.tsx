@@ -5,6 +5,23 @@ import { useAuthContext } from "@/components/auth/authProvider";
 import { WorkspaceTabs, type WorkspaceTabOption } from "@/components/ui/workspaceTabs";
 import { useCatalog } from "@/hooks/useCatalog";
 import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
+import {
+  buildCatalogCsvContent,
+  buildCatalogWorkbenchRecommendations,
+  buildCatalogWorkbenchSummary,
+  buildProductViewModels,
+  filterProductViewModels,
+  formatCatalogCurrency,
+  getDefaultCatalogWorkbenchFilters,
+  hasActiveCatalogWorkbenchFilters,
+  productPriceBandFilterOptions,
+  productSortOptions,
+  productStatusFilterOptions,
+  type CatalogWorkbenchFilters,
+  type ProductPriceBandFilter,
+  type ProductSortKey,
+  type ProductStatusFilter
+} from "@/lib/catalog/workbench";
 import type {
   BrandResponse,
   CategoryResponse,
@@ -78,13 +95,6 @@ function formatDate(value: string): string {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
-}
-
-function formatCurrency(valueInCents: number, currency: string): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency
-  }).format(valueInCents / 100);
 }
 
 /**
@@ -171,8 +181,9 @@ export default function CatalogPage() {
       defaultValue: "products",
       values: catalogWorkspaceTabValues
     });
-  const [productSearch, setProductSearch] = useState("");
-  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [catalogWorkbenchFilters, setCatalogWorkbenchFilters] = useState(
+    getDefaultCatalogWorkbenchFilters
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState(false);
   const [isSubmittingBrand, setIsSubmittingBrand] = useState(false);
@@ -184,47 +195,33 @@ export default function CatalogPage() {
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
 
-  const categoryMap = useMemo(
-    () => new Map(categories.map((category) => [category.id, category])),
-    [categories]
+  const productViewModels = useMemo(
+    () =>
+      buildProductViewModels({
+        products,
+        categories,
+        brands
+      }),
+    [brands, categories, products]
   );
-  const brandMap = useMemo(
-    () => new Map(brands.map((brand) => [brand.id, brand])),
-    [brands]
+  const filteredProducts = useMemo(
+    () => filterProductViewModels(productViewModels, catalogWorkbenchFilters),
+    [catalogWorkbenchFilters, productViewModels]
   );
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = productSearch.trim().toLocaleLowerCase("pt-BR");
-
-    return products.filter((product) => {
-      const category = categoryMap.get(product.categoryId);
-      const brand = product.brandId ? brandMap.get(product.brandId) : null;
-      const matchesCategory =
-        productCategoryFilter === "all" ||
-        product.categoryId === productCategoryFilter;
-
-      if (!matchesCategory) {
-        return false;
-      }
-
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const searchableText = [
-        product.name,
-        product.sku ?? "",
-        category?.name ?? "",
-        brand?.name ?? "",
-        product.currency
-      ]
-        .join(" ")
-        .toLocaleLowerCase("pt-BR");
-
-      return searchableText.includes(normalizedSearch);
-    });
-  }, [brandMap, categoryMap, productCategoryFilter, productSearch, products]);
+  const catalogWorkbenchSummary = useMemo(
+    () =>
+      buildCatalogWorkbenchSummary({
+        allProducts: productViewModels,
+        visibleProducts: filteredProducts
+      }),
+    [filteredProducts, productViewModels]
+  );
+  const catalogRecommendations = useMemo(
+    () => buildCatalogWorkbenchRecommendations(catalogWorkbenchSummary),
+    [catalogWorkbenchSummary]
+  );
   const hasProductFilters =
-    productSearch.trim().length > 0 || productCategoryFilter !== "all";
+    hasActiveCatalogWorkbenchFilters(catalogWorkbenchFilters);
   const catalogTabsWithCounts = useMemo<Array<WorkspaceTabOption<CatalogWorkspaceTab>>>(
     () =>
       catalogWorkspaceTabs.map((tab) => ({
@@ -376,6 +373,38 @@ export default function CatalogPage() {
       ...currentValues,
       [field]: value
     }));
+  }
+
+  function handleCatalogWorkbenchFilterChange(
+    field: keyof CatalogWorkbenchFilters,
+    value:
+      | string
+      | ProductStatusFilter
+      | ProductPriceBandFilter
+      | ProductSortKey
+  ): void {
+    setCatalogWorkbenchFilters((currentFilters) => ({
+      ...currentFilters,
+      [field]: value
+    }));
+  }
+
+  function handleResetCatalogWorkbenchFilters(): void {
+    setCatalogWorkbenchFilters(getDefaultCatalogWorkbenchFilters());
+  }
+
+  function handleDownloadCatalogCsv(): void {
+    const csvContent = buildCatalogCsvContent(filteredProducts);
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = "catalogo-filtrado.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleProductSubmit(
@@ -860,24 +889,32 @@ export default function CatalogPage() {
                 </p>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-[minmax(220px,360px)_220px]">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(220px,360px)_180px_180px_180px_180px]">
                 <label className="grid gap-2 text-sm text-slate-200">
                   <span>Buscar</span>
                   <input
                     type="search"
-                    value={productSearch}
-                    onChange={(event) => setProductSearch(event.target.value)}
+                    value={catalogWorkbenchFilters.search}
+                    onChange={(event) =>
+                      handleCatalogWorkbenchFilterChange(
+                        "search",
+                        event.target.value
+                      )
+                    }
                     className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/40"
-                    placeholder="Nome, SKU, marca ou moeda"
+                    placeholder="Nome, SKU, marca, categoria ou especificacao"
                   />
                 </label>
 
                 <label className="grid gap-2 text-sm text-slate-200">
                   <span>Categoria</span>
                   <select
-                    value={productCategoryFilter}
+                    value={catalogWorkbenchFilters.categoryId}
                     onChange={(event) =>
-                      setProductCategoryFilter(event.target.value)
+                      handleCatalogWorkbenchFilterChange(
+                        "categoryId",
+                        event.target.value
+                      )
                     }
                     className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
                   >
@@ -889,20 +926,145 @@ export default function CatalogPage() {
                     ))}
                   </select>
                 </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Status</span>
+                  <select
+                    value={catalogWorkbenchFilters.status}
+                    onChange={(event) =>
+                      handleCatalogWorkbenchFilterChange(
+                        "status",
+                        event.target.value as ProductStatusFilter
+                      )
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    {productStatusFilterOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Faixa</span>
+                  <select
+                    value={catalogWorkbenchFilters.priceBand}
+                    onChange={(event) =>
+                      handleCatalogWorkbenchFilterChange(
+                        "priceBand",
+                        event.target.value as ProductPriceBandFilter
+                      )
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    {productPriceBandFilterOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="grid gap-2 text-sm text-slate-200">
+                  <span>Ordenacao</span>
+                  <select
+                    value={catalogWorkbenchFilters.sort}
+                    onChange={(event) =>
+                      handleCatalogWorkbenchFilterChange(
+                        "sort",
+                        event.target.value as ProductSortKey
+                      )
+                    }
+                    className="rounded-2xl border border-white/10 bg-[#0c1526] px-4 py-3 text-white outline-none transition focus:border-sky-300/40"
+                  >
+                    {productSortOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
 
-            {hasProductFilters ? (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={() => {
-                  setProductSearch("");
-                  setProductCategoryFilter("all");
-                }}
-                className="mt-4 inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
+                onClick={handleResetCatalogWorkbenchFilters}
+                disabled={!hasProductFilters}
+                className="inline-flex rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Limpar filtros
               </button>
+              <button
+                type="button"
+                onClick={handleDownloadCatalogCsv}
+                disabled={!filteredProducts.length}
+                className="inline-flex rounded-full border border-sky-300/20 bg-sky-400/10 px-4 py-2 text-sm font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Exportar CSV
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Ativos",
+                  value: catalogWorkbenchSummary.activeProducts,
+                  helper: "prontos para venda"
+                },
+                {
+                  label: "Inativos",
+                  value: catalogWorkbenchSummary.inactiveProducts,
+                  helper: "pedem revisao"
+                },
+                {
+                  label: "Preco medio",
+                  value: formatCatalogCurrency(
+                    catalogWorkbenchSummary.averagePriceCents,
+                    "BRL"
+                  ),
+                  helper: "consulta visivel"
+                },
+                {
+                  label: "Sem marca",
+                  value: catalogWorkbenchSummary.productsWithoutBrand,
+                  helper: "cadastro incompleto"
+                }
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-sky-200/70">
+                    {metric.label}
+                  </p>
+                  <p className="mt-2 text-xl font-semibold text-white">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{metric.helper}</p>
+                </div>
+              ))}
+            </div>
+
+            {catalogRecommendations.length ? (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-sky-200/70">
+                  Recomendações
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {catalogRecommendations.map((recommendation) => (
+                    <p
+                      key={recommendation}
+                      className="rounded-xl bg-[#0c1526] px-3 py-2 text-sm text-slate-200"
+                    >
+                      {recommendation}
+                    </p>
+                  ))}
+                </div>
+              </div>
             ) : null}
 
             <div className="mt-6 grid gap-3">
@@ -916,10 +1078,6 @@ export default function CatalogPage() {
               ) : filteredProducts.length ? (
                 filteredProducts.map((product) => {
                   const isSelected = product.id === selectedProductId;
-                  const categoryName = categoryMap.get(product.categoryId)?.name;
-                  const brandName = product.brandId
-                    ? brandMap.get(product.brandId)?.name
-                    : null;
 
                   return (
                     <button
@@ -938,19 +1096,21 @@ export default function CatalogPage() {
                             {product.name}
                           </p>
                           <p className="mt-1 text-sm text-slate-300">
-                            {categoryName ?? "Categoria nao identificada"}
-                            {brandName ? ` | ${brandName}` : ""}
+                            {product.categoryLabel} | {product.brandLabel}
                           </p>
                           <p className="mt-1 text-sm text-slate-400">
-                            {product.sku ? `SKU: ${product.sku}` : "Sem SKU"}
+                            SKU: {product.skuLabel} | {product.specificationLabel}
+                          </p>
+                          <p className="mt-2 text-xs leading-5 text-slate-400">
+                            {product.insight}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-semibold text-[var(--accent)]">
-                            {formatCurrency(product.basePriceCents, product.currency)}
+                            {product.priceLabel}
                           </p>
                           <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">
-                            {product.isActive ? "Ativo" : "Inativo"}
+                            {product.statusLabel}
                           </p>
                         </div>
                       </div>

@@ -16,6 +16,19 @@ import {
 } from "@/components/ui/workspaceTabs";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useWorkspaceTabUrlState } from "@/hooks/useWorkspaceTabUrlState";
+import {
+  buildCustomerCsvContent,
+  buildCustomerViewModels,
+  buildCustomerWorkbenchRecommendations,
+  buildCustomerWorkbenchSummary,
+  customerContactFilterOptions,
+  customerSortOptions,
+  filterCustomerViewModels,
+  getDefaultCustomerWorkbenchFilters,
+  hasActiveCustomerWorkbenchFilters,
+  type CustomerContactFilter,
+  type CustomerSortKey
+} from "@/lib/customers/workbench";
 import type {
   CreateCustomerRequest,
   CustomerResponse,
@@ -99,6 +112,9 @@ export default function CustomersPage() {
   const [searchInput, setSearchInput] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [customerWorkbenchFilters, setCustomerWorkbenchFilters] = useState(
+    getDefaultCustomerWorkbenchFilters
+  );
   const [activeCustomerTab, setActiveCustomerTab] =
     useWorkspaceTabUrlState<CustomerWorkspaceTab>({
       defaultValue: "list",
@@ -114,6 +130,25 @@ export default function CustomersPage() {
     () => Math.max(1, Math.ceil(total / Math.max(pageSize, 1))),
     [pageSize, total]
   );
+  const customerViewModels = useMemo(() => buildCustomerViewModels(items), [items]);
+  const visibleCustomers = useMemo(
+    () => filterCustomerViewModels(customerViewModels, customerWorkbenchFilters),
+    [customerViewModels, customerWorkbenchFilters]
+  );
+  const customerWorkbenchSummary = useMemo(
+    () =>
+      buildCustomerWorkbenchSummary({
+        allCustomers: customerViewModels,
+        visibleCustomers
+      }),
+    [customerViewModels, visibleCustomers]
+  );
+  const customerRecommendations = useMemo(
+    () => buildCustomerWorkbenchRecommendations(customerWorkbenchSummary),
+    [customerWorkbenchSummary]
+  );
+  const hasCustomerWorkbenchFilters =
+    hasActiveCustomerWorkbenchFilters(customerWorkbenchFilters);
   const formTitle = selectedCustomerId ? "Editar cliente" : "Novo cliente";
   const formDescription = selectedCustomerId
     ? "Atualize os dados do cliente selecionado sem perder o vínculo com o tenant."
@@ -188,6 +223,34 @@ export default function CustomersPage() {
       ...currentValues,
       [field]: value
     }));
+  }
+
+  function handleCustomerWorkbenchFilterChange(
+    field: "contact" | "sort",
+    value: CustomerContactFilter | CustomerSortKey
+  ): void {
+    setCustomerWorkbenchFilters((currentFilters) => ({
+      ...currentFilters,
+      [field]: value
+    }));
+  }
+
+  function handleResetCustomerWorkbenchFilters(): void {
+    setCustomerWorkbenchFilters(getDefaultCustomerWorkbenchFilters());
+  }
+
+  function handleDownloadCustomerCsv(): void {
+    const csvContent = buildCustomerCsvContent(visibleCustomers);
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8"
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = "clientes-filtrados.csv";
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleSearchSubmit(
@@ -312,6 +375,123 @@ export default function CustomersPage() {
               </Button>
             </form>
 
+            <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+              <Field label="Qualidade do contato" htmlFor="customer-contact-filter">
+                <select
+                  id="customer-contact-filter"
+                  value={customerWorkbenchFilters.contact}
+                  onChange={(event) =>
+                    handleCustomerWorkbenchFilterChange(
+                      "contact",
+                      event.target.value as CustomerContactFilter
+                    )
+                  }
+                  className="min-h-11 w-full rounded-[1rem] border border-[var(--border)] bg-[var(--surface-secondary)] px-4 text-sm text-[var(--foreground-strong)] outline-none transition focus:border-[var(--border-strong)]"
+                >
+                  {customerContactFilterOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Ordenacao" htmlFor="customer-sort">
+                <select
+                  id="customer-sort"
+                  value={customerWorkbenchFilters.sort}
+                  onChange={(event) =>
+                    handleCustomerWorkbenchFilterChange(
+                      "sort",
+                      event.target.value as CustomerSortKey
+                    )
+                  }
+                  className="min-h-11 w-full rounded-[1rem] border border-[var(--border)] bg-[var(--surface-secondary)] px-4 text-sm text-[var(--foreground-strong)] outline-none transition focus:border-[var(--border-strong)]"
+                >
+                  {customerSortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="flex flex-col justify-end gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleResetCustomerWorkbenchFilters}
+                  disabled={!hasCustomerWorkbenchFilters}
+                >
+                  Limpar filtros
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleDownloadCustomerCsv}
+                  disabled={!visibleCustomers.length}
+                >
+                  Exportar CSV
+                </Button>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Visiveis",
+                  value: customerWorkbenchSummary.visibleCustomers,
+                  helper: `de ${customerWorkbenchSummary.totalCustomers} na pagina`
+                },
+                {
+                  label: "Com e-mail",
+                  value: customerWorkbenchSummary.customersWithEmail,
+                  helper: "prontos para follow-up"
+                },
+                {
+                  label: "Com telefone",
+                  value: customerWorkbenchSummary.customersWithPhone,
+                  helper: "contato direto disponivel"
+                },
+                {
+                  label: "Incompletos",
+                  value: customerWorkbenchSummary.incompleteCustomers,
+                  helper: "precisam saneamento"
+                }
+              ].map((metric) => (
+                <div
+                  key={metric.label}
+                  className="rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4"
+                >
+                  <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--accent-strong)]/70">
+                    {metric.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-[var(--foreground-strong)]">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--muted)]">{metric.helper}</p>
+                </div>
+              ))}
+            </div>
+
+            {customerRecommendations.length ? (
+              <div className="mt-5 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--accent-strong)]/70">
+                  Recomendacoes
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {customerRecommendations.map((recommendation) => (
+                    <p
+                      key={recommendation}
+                      className="rounded-[0.9rem] bg-[var(--surface-elevated)] px-3 py-2 text-sm text-[var(--foreground)]"
+                    >
+                      {recommendation}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {error ? (
               <FeedbackBanner
                 className="mt-5"
@@ -329,8 +509,8 @@ export default function CustomersPage() {
                     className="h-24 rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface-secondary)]"
                   />
                 ))
-              ) : items.length ? (
-                items.map((customer) => {
+              ) : visibleCustomers.length ? (
+                visibleCustomers.map((customer) => {
                   const isSelected = customer.id === selectedCustomerId;
 
                   return (
@@ -350,14 +530,20 @@ export default function CustomersPage() {
                             {customer.name}
                           </p>
                           <p className="mt-1 text-sm text-[var(--foreground)]">
-                            {customer.email ?? "Sem e-mail informado"}
+                            {customer.emailLabel}
                           </p>
                           <p className="mt-1 text-sm text-[var(--muted)]">
-                            Documento: {customer.document ?? "Nao informado"}
+                            Documento: {customer.documentLabel}
+                          </p>
+                          <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                            {customer.insight}
                           </p>
                         </div>
-                        <div className="text-sm text-[var(--muted)]">
-                          Atualizado em {formatDate(customer.updatedAt)}
+                        <div className="flex flex-col gap-2 text-sm text-[var(--muted)] md:items-end">
+                          <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--foreground)]">
+                            {customer.contactLabel}
+                          </span>
+                          <span>Atualizado em {formatDate(customer.updatedAt)}</span>
                         </div>
                       </div>
                     </button>
@@ -365,8 +551,16 @@ export default function CustomersPage() {
                 })
               ) : (
                 <EmptyState
-                  title="Nenhum cliente encontrado para os filtros atuais."
-                  description="Ajuste a busca ou abra a aba de cadastro para criar um novo cliente."
+                  title={
+                    items.length
+                      ? "Nenhum cliente passa nos filtros locais."
+                      : "Nenhum cliente encontrado para os filtros atuais."
+                  }
+                  description={
+                    items.length
+                      ? "Limpe os filtros locais ou ajuste a qualidade de contato para ampliar a consulta."
+                      : "Ajuste a busca ou abra a aba de cadastro para criar um novo cliente."
+                  }
                 />
               )}
             </div>
