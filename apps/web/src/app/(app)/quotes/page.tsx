@@ -26,6 +26,8 @@ import type {
   ShareLinkResponse
 } from "@/lib/quotes/schemas";
 import {
+  buildQuoteDetailSnapshot,
+  buildQuotePipelineSnapshot,
   buildQuoteWorkbenchCsvContent,
   buildQuoteWorkbenchPagination,
   buildQuoteWorkbenchRecommendations,
@@ -39,10 +41,12 @@ import {
   quoteStatusFilterOptions,
   quoteValueBandOptions,
   quoteWorkbenchPageSize,
+  type QuoteRiskTone,
   type QuoteSortKey,
   type QuoteStatusFilter,
   type QuoteValueBandFilter
 } from "@/lib/quotes/workbench";
+import { classNames } from "@/lib/utils/classNames";
 
 interface QuoteCreateFormValues {
   customerId: string;
@@ -172,16 +176,20 @@ function formatCurrency(valueInCents: number, currency: string): string {
   }).format(valueInCents / 100);
 }
 
-function formatSourceType(value: QuoteDetail["versions"][number]["sourceType"]): string {
-  if (value === "import_json") {
-    return "Importacao JSON";
+function getQuoteRiskToneClassName(tone: QuoteRiskTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/20 text-emerald-200";
   }
 
-  if (value === "ai_future") {
-    return "IA";
+  if (tone === "warning") {
+    return "border-amber-300/20 text-amber-200";
   }
 
-  return "Manual";
+  if (tone === "danger") {
+    return "border-rose-300/20 text-rose-200";
+  }
+
+  return "border-white/10 text-slate-400";
 }
 
 export default function QuotesPage() {
@@ -314,6 +322,15 @@ export default function QuotesPage() {
       }),
     [quoteWorkbenchFilters, quoteWorkbenchSummary]
   );
+  const quotePipelineSnapshot = useMemo(
+    () =>
+      buildQuotePipelineSnapshot({
+        summary: quoteWorkbenchSummary,
+        filters: quoteWorkbenchFilters,
+        visibleQuotes: filteredQuotes
+      }),
+    [filteredQuotes, quoteWorkbenchFilters, quoteWorkbenchSummary]
+  );
   const hasQuoteWorkbenchFilters =
     hasActiveQuoteWorkbenchFilters(quoteWorkbenchFilters);
   const currentVersionDetail = useMemo(() => {
@@ -327,6 +344,16 @@ export default function QuotesPage() {
       ) ?? null
     );
   }, [selectedQuoteDetail]);
+  const quoteDetailSnapshot = useMemo(() => {
+    if (!selectedQuoteDetail) {
+      return null;
+    }
+
+    return buildQuoteDetailSnapshot({
+      detail: selectedQuoteDetail,
+      customerName: customerMap.get(selectedQuoteDetail.customerId)?.name ?? null
+    });
+  }, [customerMap, selectedQuoteDetail]);
 
   const refreshQuotesWorkspace = useCallback(async () => {
     setIsLoadingBootstrap(true);
@@ -1711,6 +1738,122 @@ export default function QuotesPage() {
               </div>
             </div>
 
+            <div className="mt-5 grid gap-4 rounded-2xl border border-white/10 bg-[#0c1526] p-4">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+                    Saude do pipeline
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <span
+                      className={classNames(
+                        "rounded-full border px-3 py-1 text-xs font-medium",
+                        getQuoteRiskToneClassName(quotePipelineSnapshot.health.tone)
+                      )}
+                    >
+                      {quotePipelineSnapshot.health.score}/100
+                    </span>
+                    <h3 className="text-xl font-semibold text-white">
+                      {quotePipelineSnapshot.health.label}
+                    </h3>
+                  </div>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                    {quotePipelineSnapshot.health.description}
+                  </p>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-3 xl:min-w-[520px]">
+                  {quotePipelineSnapshot.stages.map((stage) => (
+                    <div
+                      key={stage.key}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                    >
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                        {stage.label}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-white">
+                        {stage.count}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {stage.valueLabel}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                    Leitura comercial
+                  </p>
+                  <h3 className="mt-3 text-lg font-semibold text-white">
+                    {quotePipelineSnapshot.narrative.headline}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    {quotePipelineSnapshot.narrative.body}
+                  </p>
+                  <div className="mt-4 grid gap-2">
+                    {quotePipelineSnapshot.narrative.bullets.map((bullet) => (
+                      <p
+                        key={bullet}
+                        className="rounded-xl border border-white/10 bg-[#08111f] px-3 py-2 text-sm leading-6 text-slate-300"
+                      >
+                        {bullet}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                    Prioridades
+                  </p>
+                  {quotePipelineSnapshot.priorityCards.length ? (
+                    <div className="mt-3 grid gap-2">
+                      {quotePipelineSnapshot.priorityCards.map((card) => (
+                        <button
+                          key={card.id}
+                          type="button"
+                          onClick={() => openQuotePanelRoute(card.quoteId)}
+                          className="rounded-xl border border-white/10 bg-[#08111f] px-3 py-3 text-left transition hover:border-sky-300/30 hover:bg-white/10"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-white">
+                                {card.title}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-400">
+                                {card.customerName} | {card.valueLabel}
+                              </p>
+                            </div>
+                            <span
+                              className={classNames(
+                                "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.18em]",
+                                getQuoteRiskToneClassName(card.riskTone)
+                              )}
+                            >
+                              {card.priorityLabel}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-slate-400">
+                            {card.reason}
+                          </p>
+                          <p className="mt-2 text-xs font-medium text-sky-200">
+                            {card.actionLabel}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                      Nenhuma prioridade aparece com os filtros atuais.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {quoteWorkbenchRecommendations.length ? (
               <div className="mt-4 grid gap-2 rounded-2xl border border-sky-300/15 bg-sky-400/10 p-4 text-sm leading-6 text-sky-50">
                 {quoteWorkbenchRecommendations.map((recommendation) => (
@@ -1935,26 +2078,71 @@ export default function QuotesPage() {
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-sm text-slate-400">Cliente</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {customerMap.get(selectedQuoteDetail.customerId)?.name ??
-                        "Cliente não carregado"}
+                      {quoteDetailSnapshot?.customerName ?? "Cliente não carregado"}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-sm text-slate-400">Versão atual</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {selectedQuoteDetail.currentVersion.versionNumber}
+                      {quoteDetailSnapshot?.currentVersionLabel}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                     <p className="text-sm text-slate-400">Total atual</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {formatCurrency(
-                        selectedQuoteDetail.currentVersion.totalCents,
-                        selectedQuoteDetail.currentVersion.currency
-                      )}
+                      {quoteDetailSnapshot?.currentTotalLabel}
                     </p>
                   </div>
                 </div>
+
+                {quoteDetailSnapshot ? (
+                  <div className="grid gap-4 rounded-2xl border border-white/10 bg-[#0c1526] p-4 lg:grid-cols-[0.8fr_1.2fr]">
+                    <div>
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-sky-200/80">
+                        Raio X do detalhe
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-xs text-slate-400">Versoes</p>
+                          <p className="mt-1 text-lg font-semibold text-white">
+                            {quoteDetailSnapshot.totalVersions}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-xs text-slate-400">Itens atuais</p>
+                          <p className="mt-1 text-lg font-semibold text-white">
+                            {quoteDetailSnapshot.totalItems}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-xs text-slate-400">Media por item</p>
+                          <p className="mt-1 text-lg font-semibold text-white">
+                            {quoteDetailSnapshot.averageItemValueLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                        Hints comerciais
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        Origem das versoes: {quoteDetailSnapshot.sourceMixLabel}
+                      </p>
+                      <div className="mt-4 grid gap-2">
+                        {quoteDetailSnapshot.actionHints.map((hint) => (
+                          <p
+                            key={hint}
+                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm leading-6 text-slate-300"
+                          >
+                            {hint}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                   <div className="grid gap-5">
@@ -1963,9 +2151,11 @@ export default function QuotesPage() {
                         Versões
                       </p>
                       <div className="mt-4 grid gap-4">
-                        {selectedQuoteDetail.versions.map((version) => {
-                          const isCurrentVersion =
-                            version.id === selectedQuoteDetail.currentVersion.id;
+                        {(quoteDetailSnapshot?.timeline ?? []).map((version) => {
+                          const versionDetail = selectedQuoteDetail.versions.find(
+                            (candidate) => candidate.id === version.id
+                          );
+                          const isCurrentVersion = version.isCurrent;
 
                           return (
                             <div
@@ -1990,7 +2180,7 @@ export default function QuotesPage() {
                                   <div>
                                     <div className="flex flex-wrap items-center gap-2">
                                       <p className="text-base font-medium text-white">
-                                        Versao {version.versionNumber}
+                                        {version.label}
                                       </p>
                                       {isCurrentVersion ? (
                                         <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-100">
@@ -1999,9 +2189,7 @@ export default function QuotesPage() {
                                       ) : null}
                                     </div>
                                     <p className="mt-2 text-sm text-slate-300">
-                                      {version.label ?? "Sem label"} |{" "}
-                                      {formatSourceType(version.sourceType)} |{" "}
-                                      {version.items.length} item(ns)
+                                      {version.sourceLabel} | {version.itemCount} item(ns)
                                     </p>
                                     <p className="mt-1 font-mono text-xs uppercase tracking-[0.2em] text-slate-500">
                                       {formatDate(version.createdAt)}
@@ -2010,23 +2198,22 @@ export default function QuotesPage() {
 
                                   <div className="text-left md:text-right">
                                     <p className="text-base font-semibold text-[var(--accent)]">
-                                      {formatCurrency(
-                                        version.totalCents,
-                                        version.currency
-                                      )}
+                                      {version.totalLabel}
                                     </p>
                                     <p className="mt-1 text-xs text-slate-400">
                                       Subtotal{" "}
-                                      {formatCurrency(
-                                        version.subtotalCents,
-                                        version.currency
-                                      )}
+                                      {versionDetail
+                                        ? formatCurrency(
+                                            versionDetail.subtotalCents,
+                                            versionDetail.currency
+                                          )
+                                        : version.totalLabel}
                                     </p>
                                   </div>
                                 </div>
 
                                 <div className="grid gap-2">
-                                  {version.items.slice(0, 3).map((item) => (
+                                  {(versionDetail?.items ?? []).slice(0, 3).map((item) => (
                                     <div
                                       key={item.id}
                                       className="flex flex-col gap-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
@@ -2037,14 +2224,14 @@ export default function QuotesPage() {
                                       <span className="text-slate-400">
                                         {formatCurrency(
                                           item.totalPriceCents,
-                                          version.currency
+                                          versionDetail?.currency ?? "BRL"
                                         )}
                                       </span>
                                     </div>
                                   ))}
-                                  {version.items.length > 3 ? (
+                                  {(versionDetail?.items.length ?? 0) > 3 ? (
                                     <p className="text-xs text-slate-500">
-                                      +{version.items.length - 3} item(ns) nesta
+                                      +{(versionDetail?.items.length ?? 0) - 3} item(ns) nesta
                                       versao
                                     </p>
                                   ) : null}

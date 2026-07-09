@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { CustomerResponse } from "@/lib/customers/schemas";
-import type { QuoteSummary } from "./schemas";
+import type { QuoteDetail, QuoteSummary } from "./schemas";
 import {
+  buildQuoteDetailSnapshot,
+  buildQuoteDetailTimeline,
+  buildQuotePipelineCards,
+  buildQuotePipelineHealth,
+  buildQuotePipelineNarrative,
+  buildQuotePipelineSnapshot,
+  buildQuotePipelineStages,
   buildQuoteWorkbenchCsvContent,
   buildQuoteWorkbenchPagination,
   buildQuoteWorkbenchRecommendations,
@@ -10,6 +17,7 @@ import {
   buildQuoteWorkbenchViewModels,
   classifyQuoteValueBand,
   filterQuoteWorkbenchViewModels,
+  formatQuoteCurrency,
   formatQuoteStatusLabel,
   getDefaultQuoteWorkbenchFilters,
   getQuoteStatusTone,
@@ -118,6 +126,64 @@ const quotes = [
     updatedAt: "2026-07-06T09:00:00.000Z"
   })
 ];
+
+const quoteDetail: QuoteDetail = {
+  ...quotes[0]!,
+  currentVersion: {
+    id: "qv_current",
+    versionNumber: 2,
+    subtotalCents: 2400000,
+    discountCents: 0,
+    totalCents: 2400000,
+    currency: "BRL"
+  },
+  versions: [
+    {
+      id: "qv_previous",
+      versionNumber: 1,
+      label: "Primeira proposta",
+      currency: "BRL",
+      subtotalCents: 1200000,
+      discountCents: 0,
+      totalCents: 1200000,
+      sourceType: "manual",
+      createdAt: "2026-07-07T10:00:00.000Z",
+      items: [
+        {
+          id: "item_old",
+          productId: "prd_old",
+          productName: "Notebook antigo",
+          productDescription: null,
+          quantity: 2,
+          unitPriceCents: 600000,
+          totalPriceCents: 1200000
+        }
+      ]
+    },
+    {
+      id: "qv_current",
+      versionNumber: 2,
+      label: null,
+      currency: "BRL",
+      subtotalCents: 2400000,
+      discountCents: 0,
+      totalCents: 2400000,
+      sourceType: "import_json",
+      createdAt: "2026-07-08T10:00:00.000Z",
+      items: [
+        {
+          id: "item_a",
+          productId: "prd_a",
+          productName: "Notebook Pro",
+          productDescription: "Equipamento corporativo",
+          quantity: 3,
+          unitPriceCents: 800000,
+          totalPriceCents: 2400000
+        }
+      ]
+    }
+  ]
+};
 
 describe("quotes/workbench", () => {
   it("mantem opcoes de filtros e ordenacao estaveis para a UI", () => {
@@ -359,5 +425,288 @@ describe("quotes/workbench", () => {
         'quo_csv,"Orcamento ""Especial""",Cliente Alpha,Publicado,Versao atual: 4,123456,BRL,2026-07-08T15:00:00.000Z,Versao 4 publicada e pronta para distribuicao.'
       ].join("\n")
     );
+  });
+
+  it("formata moeda do pipeline respeitando Intl", () => {
+    expect(formatQuoteCurrency(2400000, "BRL")).toContain("24.000,00");
+  });
+
+  it("monta cards priorizados do pipeline comercial", () => {
+    const viewModels = buildQuoteWorkbenchViewModels({
+      quotes,
+      customers
+    });
+
+    expect(buildQuotePipelineCards(viewModels)).toEqual([
+      {
+        id: "quo_draft_high:urgent",
+        quoteId: "quo_draft_high",
+        title: "Renovacao notebooks diretoria",
+        customerName: "Cliente Alpha",
+        valueLabel: formatQuoteCurrency(2400000, "BRL"),
+        priority: "urgent",
+        priorityLabel: "Urgente",
+        riskTone: "danger",
+        statusLabel: "Draft",
+        actionLabel: "Publicar proposta",
+        reason: "Draft de alto valor parado no funil comercial.",
+        href: "/quotes?quoteId=quo_draft_high"
+      },
+      {
+        id: "quo_published_mid:normal",
+        quoteId: "quo_published_mid",
+        title: "Monitores equipe comercial",
+        customerName: "Cliente Beta",
+        valueLabel: formatQuoteCurrency(450000, "BRL"),
+        priority: "normal",
+        priorityLabel: "Normal",
+        riskTone: "success",
+        statusLabel: "Publicado",
+        actionLabel: "Acompanhar link",
+        reason: "Proposta publicada deve ser acompanhada ate decisao do cliente.",
+        href: "/quotes?quoteId=quo_published_mid"
+      },
+      {
+        id: "quo_draft_zero:normal",
+        quoteId: "quo_draft_zero",
+        title: "Servico a definir",
+        customerName: "Cliente nao carregado",
+        valueLabel: formatQuoteCurrency(0, "BRL"),
+        priority: "normal",
+        priorityLabel: "Normal",
+        riskTone: "warning",
+        statusLabel: "Draft",
+        actionLabel: "Revisar itens",
+        reason: "Ainda depende de revisao antes da distribuicao.",
+        href: "/quotes?quoteId=quo_draft_zero"
+      },
+      {
+        id: "quo_archived_low:low",
+        quoteId: "quo_archived_low",
+        title: "Mouse ergonomico suporte",
+        customerName: "Cliente Gama",
+        valueLabel: formatQuoteCurrency(90000, "BRL"),
+        priority: "low",
+        priorityLabel: "Baixa",
+        riskTone: "muted",
+        statusLabel: "Arquivado",
+        actionLabel: "Consultar historico",
+        reason: "Orcamento arquivado preserva contexto historico.",
+        href: "/quotes?quoteId=quo_archived_low"
+      }
+    ]);
+  });
+
+  it("resume o pipeline por estagios", () => {
+    const viewModels = buildQuoteWorkbenchViewModels({
+      quotes,
+      customers
+    });
+
+    expect(buildQuotePipelineStages(viewModels)).toEqual([
+      {
+        key: "draft",
+        label: "Draft",
+        count: 2,
+        totalCents: 2400000,
+        valueLabel: formatQuoteCurrency(2400000, "BRL"),
+        description: "Propostas em preparacao ou revisao comercial."
+      },
+      {
+        key: "published",
+        label: "Publicado",
+        count: 1,
+        totalCents: 450000,
+        valueLabel: formatQuoteCurrency(450000, "BRL"),
+        description: "Propostas prontas para consumo externo."
+      },
+      {
+        key: "archived",
+        label: "Arquivado",
+        count: 1,
+        totalCents: 90000,
+        valueLabel: formatQuoteCurrency(90000, "BRL"),
+        description: "Historico preservado para consulta."
+      }
+    ]);
+  });
+
+  it("calcula saude do pipeline a partir do resumo", () => {
+    const viewModels = buildQuoteWorkbenchViewModels({
+      quotes,
+      customers
+    });
+    const summary = buildQuoteWorkbenchSummary({
+      allQuotes: viewModels,
+      visibleQuotes: viewModels
+    });
+
+    expect(buildQuotePipelineHealth(summary)).toEqual({
+      score: 100,
+      label: "Pipeline ativo",
+      tone: "success",
+      description: "Ha propostas em movimento, historico e valor comercial visivel."
+    });
+    expect(
+      buildQuotePipelineHealth({
+        ...summary,
+        totalQuotes: 0,
+        visibleQuotes: 0,
+        draftQuotes: 0,
+        publishedQuotes: 0,
+        archivedQuotes: 0,
+        totalVisibleCents: 0,
+        averageVisibleCents: 0,
+        highestVisibleQuote: null,
+        mostRecentVisibleQuote: null
+      })
+    ).toEqual({
+      score: 0,
+      label: "Pipeline vazio",
+      tone: "danger",
+      description: "Crie ou importe o primeiro orcamento para iniciar leitura comercial."
+    });
+  });
+
+  it("gera narrativa para pipeline vazio, filtrado e concentrado em drafts", () => {
+    const emptySummary = buildQuoteWorkbenchSummary({
+      allQuotes: [],
+      visibleQuotes: []
+    });
+
+    expect(
+      buildQuotePipelineNarrative({
+        summary: emptySummary,
+        filters: getDefaultQuoteWorkbenchFilters()
+      })
+    ).toMatchObject({
+      headline: "Pipeline pronto para o primeiro orcamento"
+    });
+
+    expect(
+      buildQuotePipelineNarrative({
+        summary: {
+          ...emptySummary,
+          totalQuotes: 4
+        },
+        filters: {
+          ...getDefaultQuoteWorkbenchFilters(),
+          query: "sem resultado"
+        }
+      })
+    ).toMatchObject({
+      headline: "Filtros ocultam todo o pipeline"
+    });
+
+    const viewModels = buildQuoteWorkbenchViewModels({
+      quotes,
+      customers
+    });
+    const summary = buildQuoteWorkbenchSummary({
+      allQuotes: viewModels,
+      visibleQuotes: viewModels
+    });
+
+    expect(
+      buildQuotePipelineNarrative({
+        summary,
+        filters: getDefaultQuoteWorkbenchFilters()
+      })
+    ).toMatchObject({
+      headline: "Pipeline concentrado em drafts",
+      bullets: [
+        "2 draft(s) podem receber revisao ou publicacao.",
+        "1 proposta(s) ja estao publicadas.",
+        `Valor visivel medio: ${formatQuoteCurrency(735000, "BRL")}.`
+      ]
+    });
+  });
+
+  it("monta snapshot completo do pipeline", () => {
+    const viewModels = buildQuoteWorkbenchViewModels({
+      quotes,
+      customers
+    });
+    const summary = buildQuoteWorkbenchSummary({
+      allQuotes: viewModels,
+      visibleQuotes: viewModels
+    });
+
+    expect(
+      buildQuotePipelineSnapshot({
+        summary,
+        filters: getDefaultQuoteWorkbenchFilters(),
+        visibleQuotes: viewModels
+      })
+    ).toMatchObject({
+      health: {
+        score: 100,
+        label: "Pipeline ativo"
+      },
+      narrative: {
+        headline: "Pipeline concentrado em drafts"
+      },
+      stages: [
+        expect.objectContaining({ key: "draft", count: 2 }),
+        expect.objectContaining({ key: "published", count: 1 }),
+        expect.objectContaining({ key: "archived", count: 1 })
+      ],
+      priorityCards: expect.arrayContaining([
+        expect.objectContaining({
+          quoteId: "quo_draft_high",
+          priority: "urgent"
+        })
+      ])
+    });
+  });
+
+  it("monta timeline de versoes do detalhe", () => {
+    expect(buildQuoteDetailTimeline(quoteDetail)).toEqual([
+      {
+        id: "qv_current",
+        versionNumber: 2,
+        label: "Versao 2",
+        sourceLabel: "Importacao JSON",
+        totalLabel: formatQuoteCurrency(2400000, "BRL"),
+        itemCount: 1,
+        createdAt: "2026-07-08T10:00:00.000Z",
+        isCurrent: true
+      },
+      {
+        id: "qv_previous",
+        versionNumber: 1,
+        label: "Primeira proposta",
+        sourceLabel: "Manual",
+        totalLabel: formatQuoteCurrency(1200000, "BRL"),
+        itemCount: 1,
+        createdAt: "2026-07-07T10:00:00.000Z",
+        isCurrent: false
+      }
+    ]);
+  });
+
+  it("monta snapshot do detalhe com hints acionaveis", () => {
+    expect(
+      buildQuoteDetailSnapshot({
+        detail: quoteDetail,
+        customerName: "Cliente Alpha"
+      })
+    ).toEqual({
+      quoteId: "quo_draft_high",
+      title: "Renovacao notebooks diretoria",
+      customerName: "Cliente Alpha",
+      statusLabel: "Draft",
+      currentVersionLabel: "Versao atual: 2",
+      currentTotalLabel: formatQuoteCurrency(2400000, "BRL"),
+      totalVersions: 2,
+      totalItems: 3,
+      averageItemValueLabel: formatQuoteCurrency(800000, "BRL"),
+      sourceMixLabel: "Manual + Importacao JSON",
+      timeline: buildQuoteDetailTimeline(quoteDetail),
+      actionHints: [
+        "Revise itens e notas antes de publicar a proposta.",
+        "Compare versoes para entender mudancas de escopo e preco."
+      ]
+    });
   });
 });
