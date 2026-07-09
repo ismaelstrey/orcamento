@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { classNames } from "@/lib/utils/classNames";
 import { Surface } from "./surface";
 
@@ -17,16 +17,19 @@ interface WorkspaceTabsProps<TValue extends string> {
   options: Array<WorkspaceTabOption<TValue>>;
   onChange: (value: TValue) => void;
   columnsClassName?: string;
+  copyLinkLabel?: string;
 }
 
 export function WorkspaceTabs<TValue extends string>({
   activeValue,
   ariaLabel,
   columnsClassName = "md:grid-cols-2 xl:grid-cols-4",
+  copyLinkLabel = "Copiar link da aba",
   onChange,
   options
 }: WorkspaceTabsProps<TValue>) {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [hasCopiedCurrentLink, setHasCopiedCurrentLink] = useState(false);
 
   function focusTab(index: number): void {
     const nextTab = tabRefs.current[index];
@@ -74,8 +77,42 @@ export function WorkspaceTabs<TValue extends string>({
     focusTab(nextIndex);
   }
 
+  async function handleCopyCurrentLink(): Promise<void> {
+    const currentHref = window.location.href;
+
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(currentHref);
+      } else {
+        const copyTarget = document.createElement("textarea");
+        copyTarget.value = currentHref;
+        copyTarget.setAttribute("readonly", "true");
+        copyTarget.style.position = "fixed";
+        copyTarget.style.opacity = "0";
+        document.body.appendChild(copyTarget);
+        copyTarget.select();
+        document.execCommand("copy");
+        document.body.removeChild(copyTarget);
+      }
+
+      setHasCopiedCurrentLink(true);
+      window.setTimeout(() => setHasCopiedCurrentLink(false), 1800);
+    } catch {
+      setHasCopiedCurrentLink(false);
+    }
+  }
+
   return (
     <Surface as="nav" variant="default" className="p-2">
+      <div className="mb-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => void handleCopyCurrentLink()}
+          className="rounded-full border border-[var(--border)] bg-[var(--surface-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted)] transition hover:border-[var(--accent)]/40 hover:text-[var(--foreground)]"
+        >
+          {hasCopiedCurrentLink ? "Link copiado" : copyLinkLabel}
+        </button>
+      </div>
       <div
         role="tablist"
         aria-label={ariaLabel}
