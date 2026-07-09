@@ -30,37 +30,19 @@ import {
   type AuditDomainFilter,
   type AuditToneFilter
 } from "@/lib/audit/workbench";
+import {
+  buildDashboardActions,
+  buildDashboardHealthSummary,
+  buildDashboardMetricViewModels,
+  buildDashboardNarrative,
+  buildDashboardSignals,
+  buildDashboardSnapshotCsvContent,
+  buildRecentQuoteViewModels,
+  buildTopProductViewModels,
+  formatDashboardMetric,
+  type DashboardSignalTone
+} from "@/lib/dashboard/workbench";
 import { classNames } from "@/lib/utils/classNames";
-
-const metricCards = [
-  {
-    key: "totalQuotes",
-    label: "Orçamentos totais",
-    description: "Volume geral de orçamentos registrados no tenant."
-  },
-  {
-    key: "quotesThisMonth",
-    label: "Orçamentos no mês",
-    description: "Iniciativas comerciais abertas no ciclo atual."
-  },
-  {
-    key: "activeCustomers",
-    label: "Clientes ativos",
-    description: "Clientes disponíveis para montar novos orçamentos."
-  },
-  {
-    key: "publishedLinks",
-    label: "Links publicados",
-    description: "Compartilhamentos públicos atualmente ativos."
-  }
-] as const;
-
-const nextActions = [
-  "Criar novo orçamento manual",
-  "Importar JSON para draft revisável",
-  "Gerar PDF da versão atual",
-  "Publicar ou revogar link compartilhado"
-];
 
 type DashboardWorkspaceTab = "commercial" | "operations" | "audit";
 
@@ -88,20 +70,6 @@ const dashboardWorkspaceTabs: Array<{
   }
 ];
 
-/**
- * Formata contagens do dashboard para leitura rápida na interface.
- */
-function formatMetric(value: number): string {
-  return new Intl.NumberFormat("pt-BR").format(value);
-}
-
-function formatCurrency(valueInCents: number, currency: string): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency
-  }).format(valueInCents / 100);
-}
-
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -109,16 +77,20 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function formatStatus(value: "draft" | "published" | "archived"): string {
-  if (value === "draft") {
-    return "Draft";
+function getSignalToneClassName(tone: DashboardSignalTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/20 text-emerald-200";
   }
 
-  if (value === "published") {
-    return "Publicado";
+  if (tone === "warning") {
+    return "border-amber-300/20 text-amber-200";
   }
 
-  return "Arquivado";
+  if (tone === "danger") {
+    return "border-rose-300/20 text-rose-200";
+  }
+
+  return "border-[var(--border)] text-[var(--muted)]";
 }
 
 export default function DashboardPage() {
@@ -178,16 +150,48 @@ export default function DashboardPage() {
     [auditFilters, auditWorkbenchSummary]
   );
   const hasAuditFilters = hasActiveAuditWorkbenchFilters(auditFilters);
+  const dashboardMetricCards = useMemo(
+    () =>
+      buildDashboardMetricViewModels({
+        summary,
+        isLoading
+      }),
+    [isLoading, summary]
+  );
+  const dashboardHealth = useMemo(
+    () => buildDashboardHealthSummary(summary),
+    [summary]
+  );
+  const dashboardSignals = useMemo(
+    () => buildDashboardSignals(summary),
+    [summary]
+  );
+  const dashboardNarrative = useMemo(
+    () => buildDashboardNarrative(summary),
+    [summary]
+  );
+  const dashboardActions = useMemo(
+    () => buildDashboardActions(summary),
+    [summary]
+  );
+  const topProductViewModels = useMemo(
+    () => buildTopProductViewModels(summary?.topProducts ?? []),
+    [summary]
+  );
+  const recentQuoteViewModels = useMemo(
+    () => buildRecentQuoteViewModels(summary?.recentQuotes ?? []),
+    [summary]
+  );
   const dashboardTabsWithCounts: Array<
     WorkspaceTabOption<DashboardWorkspaceTab>
   > = visibleDashboardTabs.map((tab) => ({
     ...tab,
     count:
       tab.value === "commercial"
-        ? formatMetric(summary?.recentQuotes.length ?? 0)
+        ? formatDashboardMetric(recentQuoteViewModels.length)
         : tab.value === "operations"
-          ? formatMetric(nextActions.length)
-          : formatMetric(auditWorkbenchSummary.visibleEvents)
+          ? formatDashboardMetric(dashboardActions.length)
+          : formatDashboardMetric(auditWorkbenchSummary.visibleEvents)
   }));
 
   function handleDownloadAuditCsv(): void {
@@ -200,6 +204,26 @@ export default function DashboardPage() {
 
     downloadLink.href = csvUrl;
     downloadLink.download = "auditoria-recente.csv";
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(csvUrl);
+  }
+
+  function handleDownloadDashboardSnapshot(): void {
+    if (!summary) {
+      return;
+    }
+
+    const csvContent = buildDashboardSnapshotCsvContent(summary);
+    const csvBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8"
+    });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const downloadLink = document.createElement("a");
+
+    downloadLink.href = csvUrl;
+    downloadLink.download = "dashboard-snapshot.csv";
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
@@ -261,12 +285,12 @@ export default function DashboardPage() {
       <div className="grid gap-5">
         <section className="grid gap-5">
           <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-            {metricCards.map((card) => (
+            {dashboardMetricCards.map((card) => (
               <StatCard
                 key={card.key}
                 label={card.label}
-                value={isLoading || !summary ? "..." : formatMetric(summary[card.key])}
-                description={card.description}
+                value={card.value}
+                description={`${card.description} ${card.helper}`}
               />
             ))}
           </div>
@@ -278,6 +302,59 @@ export default function DashboardPage() {
             onChange={setActiveDashboardTab}
             options={dashboardTabsWithCounts}
           />
+
+          <Surface as="article" variant="default" className="p-5">
+            <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr_auto] xl:items-center">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+                  Saude operacional
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <span
+                    className={classNames(
+                      "rounded-full border px-3 py-1 text-xs font-medium",
+                      getSignalToneClassName(dashboardHealth.tone)
+                    )}
+                  >
+                    {dashboardHealth.score}/100
+                  </span>
+                  <h2 className="text-xl font-semibold text-[var(--foreground-strong)]">
+                    {dashboardHealth.label}
+                  </h2>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                  {dashboardHealth.description}
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                {dashboardSignals.map((signal) => (
+                  <div
+                    key={signal.key}
+                    className="rounded-[1.1rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                      {signal.label}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-[var(--foreground-strong)]">
+                      {signal.value}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                      {signal.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                variant="secondary"
+                onClick={handleDownloadDashboardSnapshot}
+                disabled={!summary}
+              >
+                Exportar snapshot
+              </Button>
+            </div>
+          </Surface>
         </section>
 
         <section
@@ -308,11 +385,11 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-            ) : summary?.topProducts.length ? (
+            ) : topProductViewModels.length ? (
               <div className="mt-6 grid gap-3">
-                {summary.topProducts.map((product, index) => (
+                {topProductViewModels.map((product) => (
                   <Surface
-                    key={`${product.productId ?? product.productName}-${index}`}
+                    key={product.id}
                     as="article"
                     variant="subtle"
                     hoverable
@@ -320,18 +397,24 @@ export default function DashboardPage() {
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                       <div className="min-w-0">
-                        <p className="text-base font-medium text-[var(--foreground-strong)]">
-                          {product.productName}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-[var(--border)] px-2.5 py-1 font-mono text-[10px] text-[var(--muted)]">
+                            {product.rankLabel}
+                          </span>
+                          <p className="text-base font-medium text-[var(--foreground-strong)]">
+                            {product.productName}
+                          </p>
+                        </div>
                         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                          {product.productId
-                            ? `Produto vinculado ao catálogo: ${product.productId}`
-                            : "Item manual sem vínculo com catálogo"}
+                          {product.originLabel}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-[var(--muted)]">
+                          {product.insight}
                         </p>
                       </div>
                       <div className="text-left md:text-right">
                         <p className="text-2xl font-semibold text-[var(--accent)]">
-                          {formatMetric(product.uses)}
+                          {product.usesLabel}
                         </p>
                         <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
                           usos
@@ -378,12 +461,12 @@ export default function DashboardPage() {
                   />
                 ))}
               </div>
-            ) : summary?.recentQuotes.length ? (
+            ) : recentQuoteViewModels.length ? (
               <div className="mt-6 grid gap-3">
-                {summary.recentQuotes.map((quote) => (
+                {recentQuoteViewModels.map((quote) => (
                   <Link
                     key={quote.id}
-                    href={`/quotes?quoteId=${quote.id}`}
+                    href={quote.href}
                     className="rounded-[1.4rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4 transition hover:border-[var(--accent)]/40 hover:bg-[var(--surface-secondary)]/80"
                   >
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -392,16 +475,21 @@ export default function DashboardPage() {
                           {quote.title}
                         </p>
                         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-                          {quote.customerName} | versão {quote.versionNumber} |{" "}
+                          {quote.customerName} | {quote.versionLabel} |{" "}
                           {formatDate(quote.updatedAt)}
                         </p>
                       </div>
                       <div className="text-left md:text-right">
                         <p className="text-base font-semibold text-[var(--accent)]">
-                          {formatCurrency(quote.totalCents, quote.currency)}
+                          {quote.totalLabel}
                         </p>
-                        <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
-                          {formatStatus(quote.status)}
+                        <p
+                          className={classNames(
+                            "mt-1 text-xs uppercase tracking-[0.22em]",
+                            getSignalToneClassName(quote.tone)
+                          )}
+                        >
+                          {quote.statusLabel}
                         </p>
                       </div>
                     </div>
@@ -423,19 +511,103 @@ export default function DashboardPage() {
           hidden={currentDashboardTab !== "operations"}
           className="grid gap-5 2xl:grid-cols-[0.9fr_1.1fr]"
         >
+          <Surface as="article" variant="default" className="p-6 2xl:col-span-2">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+              Leitura executiva
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-[var(--foreground-strong)]">
+              {dashboardNarrative.headline}
+            </h2>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-[var(--muted)]">
+              {dashboardNarrative.body}
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {dashboardNarrative.bullets.map((bullet) => (
+                <div
+                  key={bullet}
+                  className="rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4 text-sm leading-6 text-[var(--foreground)]"
+                >
+                  {bullet}
+                </div>
+              ))}
+            </div>
+          </Surface>
+
           <Surface as="article" variant="default" className="p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
               Próximas ações
             </p>
             <div className="mt-5 grid gap-3">
-              {nextActions.map((action) => (
+              {dashboardActions.map((action) => (
+                <Link
+                  key={action.id}
+                  href={action.href}
+                  className="block"
+                >
+                  <Surface
+                    as="div"
+                    variant="subtle"
+                    hoverable
+                    className="rounded-[1.3rem] p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-[var(--foreground-strong)]">
+                          {action.label}
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                          {action.description}
+                        </p>
+                      </div>
+                      <span
+                        className={classNames(
+                          "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.18em]",
+                          action.priority === "high"
+                            ? "border-rose-300/20 text-rose-200"
+                            : action.priority === "medium"
+                              ? "border-amber-300/20 text-amber-200"
+                              : "border-[var(--border)] text-[var(--muted)]"
+                        )}
+                      >
+                        {action.priority}
+                      </span>
+                    </div>
+                  </Surface>
+                </Link>
+              ))}
+            </div>
+          </Surface>
+
+          <Surface as="article" variant="default" className="p-6">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+              Sinais executivos
+            </p>
+            <div className="mt-5 grid gap-3">
+              {dashboardSignals.map((signal) => (
                 <Surface
-                  key={action}
+                  key={signal.key}
                   as="div"
                   variant="subtle"
-                  className="rounded-[1.3rem] p-4 text-sm leading-7 text-[var(--foreground)]"
+                  className="rounded-[1.3rem] p-4"
                 >
-                  {action}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-[var(--foreground-strong)]">
+                        {signal.label}
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
+                        {signal.description}
+                      </p>
+                    </div>
+                    <span
+                      className={classNames(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium",
+                        getSignalToneClassName(signal.tone)
+                      )}
+                    >
+                      {signal.value}
+                    </span>
+                  </div>
                 </Surface>
               ))}
             </div>
@@ -450,7 +622,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-[var(--muted)]">Pressão comercial do mês</p>
                 <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
                   {summary
-                    ? `${formatMetric(summary.quotesThisMonth)} orçamento(s) iniciado(s)`
+                    ? `${formatDashboardMetric(summary.quotesThisMonth)} orçamento(s) iniciado(s)`
                     : "Carregando..."}
                 </p>
               </Surface>
@@ -458,7 +630,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-[var(--muted)]">Capacidade de distribuição</p>
                 <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
                   {summary
-                    ? `${formatMetric(summary.publishedLinks)} link(s) público(s) ativo(s)`
+                    ? `${formatDashboardMetric(summary.publishedLinks)} link(s) público(s) ativo(s)`
                     : "Carregando..."}
                 </p>
               </Surface>
@@ -466,7 +638,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-[var(--muted)]">Base de relacionamento</p>
                 <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
                   {summary
-                    ? `${formatMetric(summary.activeCustomers)} cliente(s) disponível(is)`
+                    ? `${formatDashboardMetric(summary.activeCustomers)} cliente(s) disponível(is)`
                     : "Carregando..."}
                 </p>
               </Surface>
@@ -475,14 +647,14 @@ export default function DashboardPage() {
                 <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
                   {summary
                     ? summary.aiActivity.totalAttemptsThisMonth > 0
-                      ? `${formatMetric(summary.aiActivity.draftsThisMonth)} draft(s) no mes`
+                      ? `${formatDashboardMetric(summary.aiActivity.draftsThisMonth)} draft(s) no mes`
                       : "Sem tentativas no mes"
                     : "Carregando..."}
                 </p>
                 {summary ? (
                   <p className="mt-2 text-sm text-[var(--muted)]">
                     {summary.aiActivity.totalAttemptsThisMonth > 0
-                      ? `${formatMetric(summary.aiActivity.totalAttemptsThisMonth)} tentativa(s) | ${Math.round(
+                      ? `${formatDashboardMetric(summary.aiActivity.totalAttemptsThisMonth)} tentativa(s) | ${Math.round(
                           summary.aiActivity.successRate * 100
                         )}% sucesso`
                       : "Use o assistente em Orcamentos para iniciar medicoes."}
@@ -490,7 +662,7 @@ export default function DashboardPage() {
                 ) : null}
                 {summary?.aiActivity.failuresThisMonth ? (
                   <p className="mt-2 text-sm text-amber-200">
-                    {formatMetric(summary.aiActivity.failuresThisMonth)} falha(s)
+                    {formatDashboardMetric(summary.aiActivity.failuresThisMonth)} falha(s)
                     registrada(s)
                   </p>
                 ) : null}
@@ -603,13 +775,13 @@ export default function DashboardPage() {
 
                 <div className="grid gap-2 text-xs text-[var(--muted)] sm:grid-cols-2">
                   <span>
-                    {formatMetric(auditWorkbenchSummary.visibleEvents)} de{" "}
-                    {formatMetric(auditWorkbenchSummary.totalEvents)} evento(s)
+                    {formatDashboardMetric(auditWorkbenchSummary.visibleEvents)} de{" "}
+                    {formatDashboardMetric(auditWorkbenchSummary.totalEvents)} evento(s)
                   </span>
                   <span>
-                    IA {formatMetric(auditWorkbenchSummary.aiEvents)} | Links{" "}
-                    {formatMetric(auditWorkbenchSummary.sharingEvents)} | Alertas{" "}
-                    {formatMetric(auditWorkbenchSummary.warningEvents)}
+                    IA {formatDashboardMetric(auditWorkbenchSummary.aiEvents)} | Links{" "}
+                    {formatDashboardMetric(auditWorkbenchSummary.sharingEvents)} | Alertas{" "}
+                    {formatDashboardMetric(auditWorkbenchSummary.warningEvents)}
                   </span>
                 </div>
 
