@@ -3,6 +3,7 @@ import {
   type RoadmapStatus,
   type RoadmapTone
 } from "@/lib/config/roadmap";
+import { DatabaseHealthCard } from "@/components/config/databaseHealthCard";
 import {
   buildReleaseReadinessSummary,
   type ReleaseReadinessBlockerSeverity,
@@ -631,6 +632,8 @@ export default function ConfigPage() {
           </div>
 
           <div className="grid gap-4">
+            <DatabaseHealthCard />
+
             <div className="grid gap-3 lg:grid-cols-2">
               {environmentDiagnostics.databaseUrls.map((diagnostic) => (
                 <article

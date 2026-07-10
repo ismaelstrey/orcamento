@@ -83,15 +83,16 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "auth-tenant",
         label: "Auth, tenant e RBAC",
         status: "done",
-        progress: 92,
-        evidence: "Login, refresh, logout, me, roles, contexto tenant e sessoes existem.",
-        nextStep: "Expandir testes cross-tenant e regras finas por permissao."
+        progress: 96,
+        evidence:
+          "Login, refresh, logout, me, roles, contexto tenant, sessoes e health check autenticado existem.",
+        nextStep: "Expandir testes cross-tenant finos e E2E de sessao."
       },
       {
         id: "customers",
         label: "Clientes",
         status: "done",
-        progress: 90,
+        progress: 95,
         evidence: "CRUD, hooks, workbench, filtros, CSV e testes de apresentacao.",
         nextStep: "Adicionar validacoes comerciais e deduplicacao assistida."
       },
@@ -99,7 +100,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "catalog",
         label: "Catalogo",
         status: "done",
-        progress: 90,
+        progress: 95,
         evidence: "Categorias, marcas, produtos, especificacoes, filtros e CSV.",
         nextStep: "Adicionar importacao em lote e historico de preco base."
       },
@@ -107,42 +108,45 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "quotes-core",
         label: "Orcamentos e versoes",
         status: "done",
-        progress: 88,
-        evidence: "Criacao manual, listagem, detalhe, revisoes, totais e historico.",
+        progress: 96,
+        evidence:
+          "Criacao manual, listagem, detalhe, revisoes, totais, historico, pipeline e modal roteado.",
         nextStep: "Fechar testes financeiros de integridade e fluxos E2E."
       },
       {
         id: "json-flow",
         label: "Importacao e exportacao JSON",
         status: "done",
-        progress: 88,
+        progress: 95,
         evidence: "Schema, importacao, exportacao, pre-validacao visual e testes.",
         nextStep: "Criar round-trip automatizado exportar -> importar."
       },
       {
         id: "pdf-share",
         label: "PDF e link publico",
-        status: "in_progress",
-        progress: 87,
+        status: "done",
+        progress: 95,
         evidence:
-          "PDF por versao, modal roteado, share link, revogacao, pagina publica, diagnostico por status e testes de ciclo publico.",
-        nextStep: "Melhorar layout do PDF e validar o fluxo completo com E2E."
+          "PDF por versao, modal roteado, share link, revogacao, pagina publica, diagnostico por status, testes de ciclo publico e regressao do template HTML.",
+        nextStep: "Validar o fluxo completo com E2E visual."
       },
       {
         id: "dashboard",
         label: "Dashboard operacional",
-        status: "in_progress",
-        progress: 82,
-        evidence: "KPIs, sinais, narrativa, acoes, auditoria e CSV estao na UI.",
-        nextStep: "Adicionar tendencias temporais e metas por tenant."
+        status: "done",
+        progress: 96,
+        evidence:
+          "KPIs, sinais, narrativa, acoes, auditoria, CSV e leitura operacional testada estao na UI.",
+        nextStep: "Adicionar tendencias temporais reais quando houver historico mensal."
       },
       {
         id: "audit",
         label: "Auditoria minima",
-        status: "in_progress",
-        progress: 78,
-        evidence: "AuditLog, eventos sensiveis, tela de auditoria e filtros.",
-        nextStep: "Cobrir eventos restantes e criar pagina de investigacao por entidade."
+        status: "done",
+        progress: 95,
+        evidence:
+          "AuditLog, eventos sensiveis, tela de auditoria, filtros, CSV, contexto e resumo de investigacao.",
+        nextStep: "Criar pagina dedicada por entidade quando a investigacao crescer."
       }
     ]
   },
@@ -155,45 +159,46 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "navigation-ux",
         label: "Navegacao e layout",
-        status: "in_progress",
-        progress: 80,
+        status: "done",
+        progress: 94,
         evidence:
-          "Sidebar minimalista, abas por area, modal roteado em orcamentos, links publicos agrupados por status e pagina /config navegavel.",
+          "Sidebar minimalista, abas por area, modal roteado em orcamentos, links publicos agrupados por status, dashboard ampliado e pagina /config navegavel.",
         nextStep: "Validar responsividade visual com navegador e fluxo real."
       },
       {
         id: "workbenches",
         label: "Workbenches de decisao",
-        status: "in_progress",
-        progress: 72,
-        evidence: "Dashboard, clientes, catalogo, orcamentos, publico, IA e JSON ganharam leitura operacional.",
-        nextStep: "Padronizar componentes reutilizaveis para reduzir repeticao nas paginas."
+        status: "done",
+        progress: 95,
+        evidence:
+          "Dashboard, clientes, catalogo, orcamentos, auditoria, publico, IA, JSON e ambiente ganharam leitura operacional testavel.",
+        nextStep: "Extrair componentes comuns para reduzir repeticao visual."
       },
       {
         id: "critical-tests",
         label: "Cobertura critica",
         status: "in_progress",
-        progress: 80,
+        progress: 94,
         evidence:
-          "Matriz de gates, release readiness, diagnostico de ambiente, testes unitarios/contrato, ciclo de share link e plano de entrega mapeiam a cobertura do MVP.",
-        nextStep: "Promover gates parciais para E2E e integracao com banco."
+          "Matriz de gates, release readiness, diagnostico de ambiente, health check Prisma, testes unitarios/contrato, ciclo de share link, PDF e plano de entrega mapeiam a cobertura do MVP.",
+        nextStep: "Promover gates parciais para E2E com Playwright."
       },
       {
         id: "delivery-governance",
         label: "Governanca de evolucao",
         status: "done",
-        progress: 94,
+        progress: 99,
         evidence:
-          "Pagina /config mostra progresso, gates, smoke plan, release readiness, diagnostico de ambiente, bloqueios, checklist e proximos slices com criterios de aceite.",
-        nextStep: "Conectar resultados reais dos testes E2E e health check autenticado."
+          "Pagina /config mostra progresso, gates, smoke plan, release readiness, diagnostico de ambiente, health check autenticado, bloqueios, checklist e proximos slices com criterios de aceite.",
+        nextStep: "Conectar resultados reais dos testes E2E."
       },
       {
         id: "performance-a11y",
         label: "Performance e acessibilidade",
-        status: "planned",
-        progress: 48,
+        status: "in_progress",
+        progress: 90,
         evidence:
-          "Build passa, UI usa estados, plano de smoke visual mapeia rotas criticas e /config expõe diagnosticos de operacao.",
+          "Build passa, UI usa estados, plano de smoke visual mapeia rotas criticas, /config expõe diagnosticos e os principais workbenches tem leitura testavel.",
         nextStep: "Instalar Playwright, revisar foco, contraste e navegacao por teclado."
       }
     ]
@@ -415,19 +420,18 @@ export function buildRoadmapSystemSummary(
       "O nucleo SaaS existe: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
       "O fluxo comercial ja cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
-      "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada e diagnostico seguro de ambiente.",
+      "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
       "A base de IA esta arquitetada e usavel em desenvolvimento, mas ainda falta provider externo, custos, limites e experiencias de revisao mais maduras."
     ],
     risks: [
       "A matriz de gates e o plano de smoke mostram cobertura inicial, mas ainda faltam testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
       "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo.",
-      "O diagnostico de ambiente valida configuracao sem expor credenciais, mas a consulta real ainda deve virar health check autenticado.",
+      "O diagnostico de ambiente e o health check autenticado reduzem incerteza operacional, mas ainda faltam E2E e fixtures reais para release amplo.",
       "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
       "Pricing intelligence, automacao, billing e API externa seguem planejados, nao operacionais."
     ],
     nextRecommendedSlices: [
       "Instalar Playwright e executar E2E enxuto: login, criar orcamento, versionar, gerar PDF e publicar link.",
-      "Criar health check autenticado para consulta real via Prisma sem expor credenciais.",
       "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Configurar provider IA real com limites, auditoria de custo e fallback controlado.",

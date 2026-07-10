@@ -113,6 +113,66 @@ const completedThisCycle: DeliverySlice[] = [
       "Falhas de configuracao indicam causa provavel e acao recomendada.",
       "Diagnostico mascara credenciais e nao expoe dados sensiveis."
     ]
+  },
+  {
+    id: "authenticated-db-healthcheck",
+    title: "Health check autenticado de banco e Prisma",
+    area: "Operacao",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Endpoint autenticado executa consulta segura e curta via Prisma.",
+      "Resposta mostra latencia, status e mensagem operacional sem credenciais.",
+      "Pagina /config consome o endpoint como verificacao runtime opcional."
+    ]
+  },
+  {
+    id: "dashboard-operational-kpis",
+    title: "KPIs operacionais testaveis no dashboard",
+    area: "Dashboard",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Dashboard mostra pressao comercial, cobertura de distribuicao, relacionamento e IA.",
+      "Indicadores ficam centralizados no workbench com testes unitarios.",
+      "UI usa a leitura testada sem depender apenas de JSX hardcoded."
+    ]
+  },
+  {
+    id: "audit-investigation-summary",
+    title: "Resumo de investigacao na auditoria",
+    area: "Auditoria",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Auditoria calcula score, eventos prioritarios e proximas acoes.",
+      "Falhas de auth e eventos de compartilhamento recebem prioridade.",
+      "Dashboard exibe o resumo antes dos filtros de auditoria."
+    ]
+  },
+  {
+    id: "pdf-template-regression",
+    title: "Regressao segura do template PDF",
+    area: "Entrega publica",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 2,
+    acceptanceCriteria: [
+      "Template renderiza totais, cliente, versao e metadados comerciais.",
+      "Conteudo dinamico e escapado contra injecao HTML.",
+      "Notas publicas opcionais nao criam secao vazia."
+    ]
   }
 ];
 
@@ -129,20 +189,6 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
       "Login, criacao de orcamento e modal roteado passam em navegador real.",
       "Link publico ativo e revogado sao validados em contexto anonimo.",
       "A pagina /config entra no smoke visual autenticado."
-    ]
-  },
-  {
-    id: "authenticated-db-healthcheck",
-    title: "Health check autenticado de banco e Prisma",
-    area: "Operacao",
-    priority: "p0",
-    effort: "s",
-    impact: "high",
-    progressLift: 3,
-    acceptanceCriteria: [
-      "Endpoint autenticado executa consulta segura e curta via Prisma.",
-      "Resposta mostra latencia, status e mensagem operacional sem credenciais.",
-      "Pagina /config consome o endpoint como verificacao runtime opcional."
     ]
   },
   {

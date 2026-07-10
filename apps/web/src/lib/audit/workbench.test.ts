@@ -6,6 +6,7 @@ import {
   buildAuditEventViewModel,
   buildAuditEventViewModels,
   buildAuditCsvContent,
+  buildAuditInvestigationSummary,
   buildAuditTimelineGroups,
   buildAuditWorkbenchSummary,
   buildAuditWorkbenchRecommendations,
@@ -287,6 +288,25 @@ describe("audit/workbench", () => {
     ).toEqual([
       "2 evento(s) pedem revisao: falhas, revogacoes ou alertas operacionais.",
       "Revise links publicos recentes para confirmar se ainda devem permanecer ativos."
+    ]);
+  });
+
+  it("gera resumo de investigacao priorizando auth e compartilhamento", () => {
+    const viewModels = buildAuditEventViewModels(auditEvents);
+    const investigation = buildAuditInvestigationSummary(viewModels);
+
+    expect(investigation).toMatchObject({
+      score: 63,
+      label: "Auditoria pede revisao",
+      tone: "info",
+      nextActions: [
+        "Revisar falhas de login e origem das tentativas recentes.",
+        "Confirmar se links revogados ou expirados nao seguem em uso."
+      ]
+    });
+    expect(investigation.priorityEvents.map((event) => event.id)).toEqual([
+      "aud_auth",
+      "aud_share"
     ]);
   });
 

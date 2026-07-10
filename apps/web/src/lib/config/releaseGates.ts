@@ -175,12 +175,14 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       },
       {
         id: "roadmap-config",
-        label: "Pagina de roadmap",
+        label: "Pagina de roadmap e operacao",
         status: "covered",
-        layers: ["unit", "ui"],
-        evidence: "Roadmap versionado, percentuais e pagina /config estao no build.",
-        gap: "Ainda falta edicao administrativa persistida do roadmap.",
-        nextStep: "Manter roadmap versionado ate existir tela de administracao persistida."
+        layers: ["unit", "ui", "service"],
+        evidence:
+          "Roadmap versionado, release readiness, diagnostico de ambiente, health check Prisma e pagina /config estao no build.",
+        gap: "Ainda falta edicao administrativa persistida do roadmap e E2E visual da pagina.",
+        nextStep:
+          "Manter roadmap versionado e adicionar E2E visual quando Playwright entrar."
       }
     ]
   }

@@ -5,6 +5,7 @@ import {
   buildDashboardHealthSummary,
   buildDashboardMetricViewModels,
   buildDashboardNarrative,
+  buildDashboardOperationalKpis,
   buildDashboardSignals,
   buildDashboardSnapshotCsvContent,
   buildRecentQuoteViewModels,
@@ -233,6 +234,47 @@ describe("dashboard/workbench", () => {
         publishedLinks: 0
       }).map((action) => action.id)
     ).toEqual(["publish-link", "import-json"]);
+  });
+
+  it("monta KPIs operacionais testaveis para leitura rapida", () => {
+    expect(
+      buildDashboardOperationalKpis(matureSummary).map((kpi) => ({
+        id: kpi.id,
+        value: kpi.value,
+        tone: kpi.tone
+      }))
+    ).toEqual([
+      {
+        id: "monthly-pressure",
+        value: "4 orcamento(s)",
+        tone: "success"
+      },
+      {
+        id: "distribution-coverage",
+        value: "2 link(s)",
+        tone: "warning"
+      },
+      {
+        id: "relationship-base",
+        value: "6 cliente(s)",
+        tone: "success"
+      },
+      {
+        id: "ai-activity",
+        value: "3 draft(s)",
+        tone: "success"
+      }
+    ]);
+
+    expect(buildDashboardOperationalKpis(null)).toEqual([
+      {
+        id: "loading",
+        label: "Sincronizacao",
+        value: "Carregando...",
+        detail: "Aguardando o resumo operacional do tenant.",
+        tone: "neutral"
+      }
+    ]);
   });
 
   it("enriquece ranking de produtos", () => {

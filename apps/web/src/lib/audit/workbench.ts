@@ -61,6 +61,14 @@ export interface AuditTimelineGroup {
   events: AuditEventViewModel[];
 }
 
+export interface AuditInvestigationSummary {
+  score: number;
+  label: string;
+  tone: Exclude<AuditToneFilter, "all">;
+  priorityEvents: AuditEventViewModel[];
+  nextActions: string[];
+}
+
 export const auditDomainOptions: Array<{
   value: AuditDomainFilter;
   label: string;
@@ -380,6 +388,64 @@ export function buildAuditWorkbenchRecommendations(input: {
   }
 
   return recommendations.slice(0, 3);
+}
+
+export function buildAuditInvestigationSummary(
+  events: AuditEventViewModel[]
+): AuditInvestigationSummary {
+  const warningEvents = events.filter((event) => event.tone === "warning");
+  const authWarnings = warningEvents.filter((event) => event.domain === "auth");
+  const sharingWarnings = warningEvents.filter(
+    (event) => event.domain === "sharing"
+  );
+  const documentEvents = events.filter((event) => event.domain === "documents");
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      100 -
+        warningEvents.length * 12 -
+        authWarnings.length * 8 -
+        sharingWarnings.length * 5
+    )
+  );
+  const priorityEvents = [
+    ...authWarnings,
+    ...sharingWarnings,
+    ...warningEvents.filter(
+      (event) => event.domain !== "auth" && event.domain !== "sharing"
+    )
+  ].slice(0, 5);
+  const nextActions: string[] = [];
+
+  if (authWarnings.length > 0) {
+    nextActions.push("Revisar falhas de login e origem das tentativas recentes.");
+  }
+
+  if (sharingWarnings.length > 0) {
+    nextActions.push("Confirmar se links revogados ou expirados nao seguem em uso.");
+  }
+
+  if (documentEvents.length === 0) {
+    nextActions.push("Gerar um PDF de versao atual para registrar evento documental.");
+  }
+
+  if (!nextActions.length) {
+    nextActions.push("Auditoria sem prioridade critica na janela recente.");
+  }
+
+  return {
+    score,
+    label:
+      score >= 85
+        ? "Auditoria saudavel"
+        : score >= 60
+          ? "Auditoria pede revisao"
+          : "Auditoria critica",
+    tone: score >= 85 ? "success" : score >= 60 ? "info" : "warning",
+    priorityEvents,
+    nextActions: nextActions.slice(0, 3)
+  };
 }
 
 function escapeCsvValue(value: string): string {

@@ -21,6 +21,7 @@ import {
   auditToneOptions,
   buildAuditCsvContent,
   buildAuditEventViewModels,
+  buildAuditInvestigationSummary,
   buildAuditTimelineGroups,
   buildAuditWorkbenchSummary,
   buildAuditWorkbenchRecommendations,
@@ -35,6 +36,7 @@ import {
   buildDashboardHealthSummary,
   buildDashboardMetricViewModels,
   buildDashboardNarrative,
+  buildDashboardOperationalKpis,
   buildDashboardSignals,
   buildDashboardSnapshotCsvContent,
   buildRecentQuoteViewModels,
@@ -149,6 +151,10 @@ export default function DashboardPage() {
       }),
     [auditFilters, auditWorkbenchSummary]
   );
+  const auditInvestigationSummary = useMemo(
+    () => buildAuditInvestigationSummary(auditEventViewModels),
+    [auditEventViewModels]
+  );
   const hasAuditFilters = hasActiveAuditWorkbenchFilters(auditFilters);
   const dashboardMetricCards = useMemo(
     () =>
@@ -172,6 +178,10 @@ export default function DashboardPage() {
   );
   const dashboardActions = useMemo(
     () => buildDashboardActions(summary),
+    [summary]
+  );
+  const dashboardOperationalKpis = useMemo(
+    () => buildDashboardOperationalKpis(summary),
     [summary]
   );
   const topProductViewModels = useMemo(
@@ -615,6 +625,39 @@ export default function DashboardPage() {
 
           <Surface as="article" variant="default" className="p-6">
             <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
+              Leitura operacional testada
+            </p>
+            <div className="mt-5 grid gap-4">
+              {dashboardOperationalKpis.map((kpi) => (
+                <Surface
+                  key={kpi.id}
+                  as="div"
+                  variant="subtle"
+                  className="rounded-[1.4rem] p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-[var(--muted)]">{kpi.label}</p>
+                      <p className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                        {kpi.value}
+                      </p>
+                    </div>
+                    <span
+                      className={classNames(
+                        "rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.16em]",
+                        getSignalToneClassName(kpi.tone)
+                      )}
+                    >
+                      {kpi.tone}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-[var(--muted)]">{kpi.detail}</p>
+                </Surface>
+              ))}
+            </div>
+          </Surface>
+          <Surface as="article" variant="default" className="p-6">
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-[var(--accent-strong)]/80">
               Leitura rápida
             </p>
             <div className="mt-5 grid gap-4">
@@ -698,6 +741,47 @@ export default function DashboardPage() {
                   {auditError}
                 </div>
               ) : null}
+
+              <div className="mt-5 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.22em] text-[var(--muted)]">
+                      Resumo de investigacao
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-[var(--foreground-strong)]">
+                      {auditInvestigationSummary.label}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                      Score {auditInvestigationSummary.score}/100 com{" "}
+                      {formatDashboardMetric(
+                        auditInvestigationSummary.priorityEvents.length
+                      )} evento(s) prioritario(s).
+                    </p>
+                  </div>
+                  <span
+                    className={classNames(
+                      "w-fit rounded-full border px-3 py-1 text-xs font-medium",
+                      auditInvestigationSummary.tone === "success"
+                        ? "border-emerald-300/20 text-emerald-200"
+                        : auditInvestigationSummary.tone === "warning"
+                          ? "border-amber-300/20 text-amber-200"
+                          : "border-[var(--border)] text-[var(--muted)]"
+                    )}
+                  >
+                    {auditInvestigationSummary.tone}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-2 md:grid-cols-3">
+                  {auditInvestigationSummary.nextActions.map((action) => (
+                    <p
+                      key={action}
+                      className="rounded-[1rem] border border-[var(--border)] bg-[var(--surface-elevated)] px-3 py-2 text-xs leading-5 text-[var(--foreground)]"
+                    >
+                      {action}
+                    </p>
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-5 grid gap-4 rounded-[1.2rem] border border-[var(--border)] bg-[var(--surface-secondary)] p-4">
                 <div className="grid gap-3">
@@ -928,3 +1012,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

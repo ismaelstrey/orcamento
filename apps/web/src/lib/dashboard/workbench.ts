@@ -77,6 +77,14 @@ export interface DashboardNarrative {
   bullets: string[];
 }
 
+export interface DashboardOperationalKpi {
+  id: string;
+  label: string;
+  value: string;
+  detail: string;
+  tone: DashboardSignalTone;
+}
+
 export const dashboardMetricDefinitions: DashboardMetricDefinition[] = [
   {
     key: "totalQuotes",
@@ -430,6 +438,92 @@ export function buildDashboardActions(
   });
 
   return actions.slice(0, 5);
+}
+
+export function buildDashboardOperationalKpis(
+  summary: DashboardSummaryResponse | null
+): DashboardOperationalKpi[] {
+  if (!summary) {
+    return [
+      {
+        id: "loading",
+        label: "Sincronizacao",
+        value: "Carregando...",
+        detail: "Aguardando o resumo operacional do tenant.",
+        tone: "neutral"
+      }
+    ];
+  }
+
+  const distributionCoverage =
+    summary.totalQuotes > 0
+      ? Math.round((summary.publishedLinks / summary.totalQuotes) * 100)
+      : 0;
+  const customerCoverage =
+    summary.activeCustomers > 0
+      ? Math.round((summary.totalQuotes / summary.activeCustomers) * 100) / 100
+      : 0;
+  const aiSuccessRate = Math.round(summary.aiActivity.successRate * 100);
+
+  return [
+    {
+      id: "monthly-pressure",
+      label: "Pressao comercial do mes",
+      value: `${formatDashboardMetric(summary.quotesThisMonth)} orcamento(s)`,
+      detail:
+        summary.quotesThisMonth > 0
+          ? "Ha pipeline novo no ciclo atual."
+          : "Sem novas propostas neste mes.",
+      tone: summary.quotesThisMonth > 0 ? "success" : "warning"
+    },
+    {
+      id: "distribution-coverage",
+      label: "Cobertura de distribuicao",
+      value: `${formatDashboardMetric(summary.publishedLinks)} link(s)`,
+      detail:
+        summary.totalQuotes > 0
+          ? `${distributionCoverage}% dos orcamentos possuem link publico ativo.`
+          : "Crie orcamentos antes de medir distribuicao.",
+      tone:
+        summary.publishedLinks === 0
+          ? "warning"
+          : distributionCoverage >= 25
+            ? "success"
+            : "warning"
+    },
+    {
+      id: "relationship-base",
+      label: "Base de relacionamento",
+      value: `${formatDashboardMetric(summary.activeCustomers)} cliente(s)`,
+      detail:
+        summary.activeCustomers > 0
+          ? `${customerCoverage.toLocaleString("pt-BR")} orcamento(s) por cliente em media.`
+          : "Cadastre clientes para medir recorrencia.",
+      tone: summary.activeCustomers > 0 ? "success" : "warning"
+    },
+    {
+      id: "ai-activity",
+      label: "Atividade do assistente IA",
+      value:
+        summary.aiActivity.totalAttemptsThisMonth > 0
+          ? `${formatDashboardMetric(summary.aiActivity.draftsThisMonth)} draft(s)`
+          : "Sem tentativas",
+      detail:
+        summary.aiActivity.totalAttemptsThisMonth > 0
+          ? `${formatDashboardMetric(
+              summary.aiActivity.totalAttemptsThisMonth
+            )} tentativa(s), ${aiSuccessRate}% sucesso e ${formatDashboardMetric(
+              summary.aiActivity.failuresThisMonth
+            )} falha(s).`
+          : "Use o assistente em Orcamentos para iniciar medicoes.",
+      tone:
+        summary.aiActivity.totalAttemptsThisMonth === 0
+          ? "neutral"
+          : aiSuccessRate >= 75
+            ? "success"
+            : "warning"
+    }
+  ];
 }
 
 export function buildTopProductViewModels(

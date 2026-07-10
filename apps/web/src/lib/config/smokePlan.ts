@@ -147,24 +147,29 @@ export const smokePlanFlows: SmokePlanFlow[] = [
   },
   {
     id: "config-roadmap",
-    label: "Roadmap e gates",
+    label: "Roadmap, ambiente e gates",
     priority: "p1",
     status: "ready",
     route: "/config",
-    objective: "Garantir que percentuais, gates e proximos slices continuam visiveis.",
-    automationTarget: "Smoke visual da pagina /config apos build.",
+    objective:
+      "Garantir que percentuais, release readiness, diagnostico de ambiente, health check e proximos slices continuam visiveis.",
+    automationTarget:
+      "Smoke visual da pagina /config apos build e health check autenticado com mock de rede.",
     steps: [
       {
         label: "Abrir /config autenticado",
-        expected: "Cards de projeto, MVP e gates renderizam sem erro."
+        expected:
+          "Cards de projeto, MVP, release readiness, ambiente e gates renderizam sem erro."
       },
       {
-        label: "Percorrer gates e roadmap",
-        expected: "Todas as fases e acoes recomendadas aparecem."
+        label: "Percorrer gates, ambiente e roadmap",
+        expected:
+          "Todas as fases, URLs mascaradas, checks e acoes recomendadas aparecem."
       },
       {
-        label: "Validar responsividade",
-        expected: "Conteudo quebra em uma coluna sem overflow horizontal."
+        label: "Executar health check runtime",
+        expected:
+          "Card mostra status, latencia e mensagem operacional sem expor credenciais."
       }
     ]
   }
