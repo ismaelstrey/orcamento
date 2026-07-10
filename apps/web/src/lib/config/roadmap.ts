@@ -173,27 +173,27 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "critical-tests",
         label: "Cobertura critica",
         status: "in_progress",
-        progress: 76,
+        progress: 80,
         evidence:
-          "Matriz de gates, testes unitarios/contrato, ciclo de share link e plano de entrega mapeiam a cobertura do MVP.",
+          "Matriz de gates, release readiness, diagnostico de ambiente, testes unitarios/contrato, ciclo de share link e plano de entrega mapeiam a cobertura do MVP.",
         nextStep: "Promover gates parciais para E2E e integracao com banco."
       },
       {
         id: "delivery-governance",
         label: "Governanca de evolucao",
         status: "done",
-        progress: 86,
+        progress: 94,
         evidence:
-          "Pagina /config mostra progresso, gates, smoke plan, riscos e proximos slices com criterios de aceite.",
-        nextStep: "Atualizar o plano a cada ciclo e conectar resultados reais dos testes E2E."
+          "Pagina /config mostra progresso, gates, smoke plan, release readiness, diagnostico de ambiente, bloqueios, checklist e proximos slices com criterios de aceite.",
+        nextStep: "Conectar resultados reais dos testes E2E e health check autenticado."
       },
       {
         id: "performance-a11y",
         label: "Performance e acessibilidade",
         status: "planned",
-        progress: 45,
+        progress: 48,
         evidence:
-          "Build passa, UI usa estados e plano de smoke visual mapeia rotas criticas.",
+          "Build passa, UI usa estados, plano de smoke visual mapeia rotas criticas e /config expõe diagnosticos de operacao.",
         nextStep: "Instalar Playwright, revisar foco, contraste e navegacao por teclado."
       }
     ]
@@ -415,15 +415,19 @@ export function buildRoadmapSystemSummary(
       "O nucleo SaaS existe: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
       "O fluxo comercial ja cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
+      "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada e diagnostico seguro de ambiente.",
       "A base de IA esta arquitetada e usavel em desenvolvimento, mas ainda falta provider externo, custos, limites e experiencias de revisao mais maduras."
     ],
     risks: [
       "A matriz de gates e o plano de smoke mostram cobertura inicial, mas ainda faltam testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
+      "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo.",
+      "O diagnostico de ambiente valida configuracao sem expor credenciais, mas a consulta real ainda deve virar health check autenticado.",
       "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
       "Pricing intelligence, automacao, billing e API externa seguem planejados, nao operacionais."
     ],
     nextRecommendedSlices: [
       "Instalar Playwright e executar E2E enxuto: login, criar orcamento, versionar, gerar PDF e publicar link.",
+      "Criar health check autenticado para consulta real via Prisma sem expor credenciais.",
       "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Configurar provider IA real com limites, auditoria de custo e fallback controlado.",

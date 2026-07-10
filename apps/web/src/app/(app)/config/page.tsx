@@ -4,12 +4,22 @@ import {
   type RoadmapTone
 } from "@/lib/config/roadmap";
 import {
+  buildReleaseReadinessSummary,
+  type ReleaseReadinessBlockerSeverity,
+  type ReleaseReadinessSignalStatus,
+  type ReleaseReadinessTone
+} from "@/lib/config/releaseReadiness";
+import {
   buildDeliveryPlanSummary,
   type DeliverySliceEffort,
   type DeliverySliceImpact,
   type DeliverySlicePriority,
   type DeliverySliceStatus
 } from "@/lib/config/deliveryPlan";
+import {
+  buildEnvironmentDiagnosticSummary,
+  type EnvironmentDiagnosticStatus
+} from "@/lib/config/environmentDiagnostics";
 import type {
   ReleaseGateLayer,
   ReleaseGateStatus,
@@ -153,6 +163,96 @@ function getSmokePriorityLabel(priority: SmokePlanPriority): string {
   return priority.toUpperCase();
 }
 
+function getReadinessToneClassName(tone: ReleaseReadinessTone): string {
+  if (tone === "success") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (tone === "warning") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+}
+
+function getEnvironmentStatusLabel(status: EnvironmentDiagnosticStatus): string {
+  if (status === "ok") {
+    return "Ok";
+  }
+
+  if (status === "warning") {
+    return "Atencao";
+  }
+
+  return "Erro";
+}
+
+function getEnvironmentStatusClassName(
+  status: EnvironmentDiagnosticStatus
+): string {
+  if (status === "ok") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  if (status === "warning") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+}
+
+function getSignalStatusLabel(status: ReleaseReadinessSignalStatus): string {
+  if (status === "healthy") {
+    return "Saudavel";
+  }
+
+  if (status === "attention") {
+    return "Atencao";
+  }
+
+  return "Bloqueado";
+}
+
+function getSignalStatusClassName(status: ReleaseReadinessSignalStatus): string {
+  if (status === "healthy") {
+    return "border-emerald-300/20 text-emerald-200";
+  }
+
+  if (status === "attention") {
+    return "border-amber-300/20 text-amber-200";
+  }
+
+  return "border-rose-300/20 text-rose-200";
+}
+
+function getBlockerSeverityLabel(
+  severity: ReleaseReadinessBlockerSeverity
+): string {
+  if (severity === "critical") {
+    return "Critico";
+  }
+
+  if (severity === "high") {
+    return "Alto";
+  }
+
+  return "Medio";
+}
+
+function getBlockerSeverityClassName(
+  severity: ReleaseReadinessBlockerSeverity
+): string {
+  if (severity === "critical") {
+    return "border-rose-300/20 bg-rose-500/10 text-rose-100";
+  }
+
+  if (severity === "high") {
+    return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+  }
+
+  return "border-white/10 bg-white/5 text-slate-300";
+}
+
 function getDeliveryPriorityLabel(priority: DeliverySlicePriority): string {
   return priority.toUpperCase();
 }
@@ -219,6 +319,11 @@ function ProgressBar({ value }: { value: number }) {
 export default function ConfigPage() {
   const roadmap = buildRoadmapSystemSummary();
   const deliveryPlan = buildDeliveryPlanSummary(roadmap);
+  const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
+  const environmentDiagnostics = buildEnvironmentDiagnosticSummary({
+    DATABASE_URL: process.env.DATABASE_URL,
+    DIRECT_URL: process.env.DIRECT_URL
+  });
 
   return (
     <div className="grid gap-6">
@@ -300,6 +405,336 @@ export default function ConfigPage() {
             <p className="mt-1 text-sm text-slate-400">
               Dados em lib/config/roadmap.ts.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+        <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+              Release readiness
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              Prontidao para proxima entrega
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              {readiness.headline}
+            </p>
+
+            <div
+              className={classNames(
+                "mt-5 rounded-2xl border p-5",
+                getReadinessToneClassName(readiness.tone)
+              )}
+            >
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.2em] opacity-75">
+                    Score de release
+                  </p>
+                  <p className="mt-2 text-5xl font-semibold text-white">
+                    {readiness.score}%
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-xs uppercase tracking-[0.16em] text-white">
+                  {readiness.canShipMvp ? "Apto" : "Segurar"}
+                </span>
+              </div>
+              <div className="mt-4">
+                <ProgressBar value={readiness.score} />
+              </div>
+              <p className="mt-4 text-sm leading-6 opacity-85">
+                Marco recomendado: {readiness.nextMilestone}
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-slate-400">
+                Ordem sugerida
+              </p>
+              <div className="mt-3 grid gap-2">
+                {readiness.recommendedExecutionOrder.map((slice, index) => (
+                  <div
+                    key={slice.id}
+                    className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium text-white">
+                      {String(index + 1).padStart(2, "0")} | {slice.title}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+                      {slice.area} | {getDeliveryPriorityLabel(slice.priority)} | +
+                      {slice.progressLift}%
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              {readiness.signals.map((signal) => (
+                <article
+                  key={signal.id}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-sky-200/70">
+                        Sinal de saude
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">
+                        {signal.label}
+                      </h3>
+                    </div>
+                    <span
+                      className={classNames(
+                        "shrink-0 rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]",
+                        getSignalStatusClassName(signal.status)
+                      )}
+                    >
+                      {getSignalStatusLabel(signal.status)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <ProgressBar value={signal.score} />
+                    </div>
+                    <span className="font-mono text-sm text-white">
+                      {signal.score}%
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-slate-300">
+                    {signal.evidence}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-white/80">
+                    Proximo: {signal.nextStep}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[1fr_1fr]">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Bloqueios
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {readiness.blockers.map((blocker) => (
+                    <div
+                      key={blocker.id}
+                      className={classNames(
+                        "rounded-xl border p-3",
+                        getBlockerSeverityClassName(blocker.severity)
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">
+                          {blocker.label}
+                        </p>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] opacity-80">
+                          {getBlockerSeverityLabel(blocker.severity)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 opacity-85">
+                        {blocker.impact}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-white/80">
+                        Resolver: {blocker.resolution}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="font-mono text-xs uppercase tracking-[0.22em] text-slate-400">
+                  Checklist de release
+                </p>
+                <div className="mt-3 grid gap-2">
+                  {readiness.checklist.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-white">
+                          {item.label}
+                        </p>
+                        <span
+                          className={classNames(
+                            "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]",
+                            item.done
+                              ? "border-emerald-300/20 text-emerald-200"
+                              : "border-amber-300/20 text-amber-200"
+                          )}
+                        >
+                          {item.done ? "Ok" : "Aberto"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-slate-400">
+                        {item.ownerArea} | {item.evidence}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
+        <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-sky-200/80">
+              Ambiente
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              Diagnostico de banco
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-300">
+              {environmentDiagnostics.headline}
+            </p>
+
+            <div
+              className={classNames(
+                "mt-5 rounded-2xl border p-5",
+                getEnvironmentStatusClassName(environmentDiagnostics.status)
+              )}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.2em] opacity-75">
+                    Status geral
+                  </p>
+                  <p className="mt-2 text-3xl font-semibold text-white">
+                    {getEnvironmentStatusLabel(environmentDiagnostics.status)}
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-slate-950/35 px-3 py-1 font-mono text-xs uppercase tracking-[0.16em] text-white">
+                  Sem segredos
+                </span>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {environmentDiagnostics.nextActions.map((action) => (
+                  <p
+                    key={action}
+                    className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-xs leading-5"
+                  >
+                    {action}
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="grid gap-3 lg:grid-cols-2">
+              {environmentDiagnostics.databaseUrls.map((diagnostic) => (
+                <article
+                  key={diagnostic.name}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-sky-200/70">
+                        {diagnostic.name}
+                      </p>
+                      <h3 className="mt-2 text-lg font-semibold text-white">
+                        {diagnostic.host || "Nao configurado"}
+                      </h3>
+                    </div>
+                    <span
+                      className={classNames(
+                        "rounded-full border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]",
+                        getEnvironmentStatusClassName(diagnostic.status)
+                      )}
+                    >
+                      {getEnvironmentStatusLabel(diagnostic.status)}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                      <dt className="uppercase tracking-[0.16em] text-slate-500">
+                        Banco
+                      </dt>
+                      <dd className="mt-1 text-white">
+                        {diagnostic.database || "-"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                      <dt className="uppercase tracking-[0.16em] text-slate-500">
+                        SSL
+                      </dt>
+                      <dd className="mt-1 text-white">
+                        {diagnostic.sslMode || "-"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                      <dt className="uppercase tracking-[0.16em] text-slate-500">
+                        Limite
+                      </dt>
+                      <dd className="mt-1 text-white">
+                        {diagnostic.connectionLimit || "-"}
+                      </dd>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                      <dt className="uppercase tracking-[0.16em] text-slate-500">
+                        Timeouts
+                      </dt>
+                      <dd className="mt-1 text-white">
+                        {diagnostic.poolTimeout || "-"} /{" "}
+                        {diagnostic.connectTimeout || "-"}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/35 p-3">
+                    <p className="break-all font-mono text-[11px] leading-5 text-slate-400">
+                      {diagnostic.safeUrl || "Variavel ausente"}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 grid gap-2">
+                    {diagnostic.findings.map((finding) => (
+                      <p
+                        key={finding}
+                        className="rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-xs leading-5 text-slate-300"
+                      >
+                        {finding}
+                      </p>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {environmentDiagnostics.checks.map((check) => (
+                <article
+                  key={check.id}
+                  className={classNames(
+                    "rounded-2xl border p-4",
+                    getEnvironmentStatusClassName(check.status)
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-white">
+                      {check.label}
+                    </h3>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] opacity-80">
+                      {getEnvironmentStatusLabel(check.status)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 opacity-85">
+                    {check.detail}
+                  </p>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
       </section>

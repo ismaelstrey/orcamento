@@ -83,6 +83,36 @@ const completedThisCycle: DeliverySlice[] = [
       "Acoes indisponiveis ficam bloqueadas com motivo visivel.",
       "Copiar, abrir e revogar mantem feedback consistente por status."
     ]
+  },
+  {
+    id: "release-readiness-console",
+    title: "Console de prontidao para release em /config",
+    area: "Governanca do produto",
+    priority: "p0",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Score de release combina roadmap, gates, smoke plan e plano de entrega.",
+      "Bloqueios, checklist e sinais de saude ficam visiveis na aplicacao.",
+      "Ordem recomendada dos proximos slices e calculada por prioridade, impacto e esforco."
+    ]
+  },
+  {
+    id: "environment-diagnostics",
+    title: "Diagnostico de ambiente e banco para desenvolvimento",
+    area: "Operacao",
+    priority: "p0",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Pagina /config mostra status de DATABASE_URL, DIRECT_URL e hardening Neon/Prisma.",
+      "Falhas de configuracao indicam causa provavel e acao recomendada.",
+      "Diagnostico mascara credenciais e nao expoe dados sensiveis."
+    ]
   }
 ];
 
@@ -99,6 +129,20 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
       "Login, criacao de orcamento e modal roteado passam em navegador real.",
       "Link publico ativo e revogado sao validados em contexto anonimo.",
       "A pagina /config entra no smoke visual autenticado."
+    ]
+  },
+  {
+    id: "authenticated-db-healthcheck",
+    title: "Health check autenticado de banco e Prisma",
+    area: "Operacao",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Endpoint autenticado executa consulta segura e curta via Prisma.",
+      "Resposta mostra latencia, status e mensagem operacional sem credenciais.",
+      "Pagina /config consome o endpoint como verificacao runtime opcional."
     ]
   },
   {
