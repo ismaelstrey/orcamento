@@ -203,6 +203,96 @@ const completedThisCycle: DeliverySlice[] = [
       "Itens de E2E, fixtures e gates parciais continuam visiveis como hardening de release amplo.",
       "Teste automatizado garante que a leitura de release controlado permanece estavel."
     ]
+  },
+  {
+    id: "ai-provider-guardrails",
+    title: "Guardrails do provider IA",
+    area: "IA assistiva",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Contrato calcula prontidao por chave, budget, latencia, auditoria e fallback.",
+      "Uso externo fica bloqueado quando custo, chave ou auditoria nao estao seguros.",
+      "Testes cobrem provider pronto e provider bloqueado."
+    ]
+  },
+  {
+    id: "pricing-manual-offers-contract",
+    title: "Contrato de ofertas manuais e melhor preco",
+    area: "Pricing intelligence",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Ofertas manuais calculam economia sobre preco base.",
+      "Melhor oferta por produto e cobertura do catalogo ficam testaveis.",
+      "Resumo recomenda proxima acao antes da automacao de coleta."
+    ]
+  },
+  {
+    id: "watchlist-alert-contract",
+    title: "Contrato de watchlist e alertas",
+    area: "Monitoramento",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Regras de queda de preco, estoque e follow-up geram alertas.",
+      "Alertas possuem severidade e motivo operacional.",
+      "Resumo mostra readiness e proximas acoes para workers reais."
+    ]
+  },
+  {
+    id: "commercial-packaging-readiness",
+    title: "Readiness de empacotamento comercial",
+    area: "Escala comercial",
+    priority: "p1",
+    effort: "s",
+    impact: "medium",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Planos starter, professional e enterprise possuem limites testaveis.",
+      "Acesso API fica reservado para tier avancado.",
+      "Resumo aponta lacunas quando monetizacao ou compartilhamento faltam."
+    ]
+  },
+  {
+    id: "ai-draft-review-workbench",
+    title: "Revisao assistida do draft de IA",
+    area: "IA assistiva",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Draft de IA recebe score, bloqueios e status de importacao.",
+      "Itens aceitos, rejeitados, confianca e budget entram na decisao.",
+      "Resumo sugere nota publica antes de criar o orcamento."
+    ]
+  },
+  {
+    id: "ai-alternatives-customer-summary",
+    title: "Alternativas IA com resumo para cliente",
+    area: "IA assistiva",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Alternativas sao comparadas por confianca, preco, pros e contras.",
+      "Opcao recomendada calcula economia frente a alternativa mais alta.",
+      "Resumo comercial orienta a comunicacao com o cliente."
+    ]
   }
 ];
 
@@ -247,6 +337,20 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
       "Provider externo e configuravel por ambiente.",
       "Fallback local continua funcionando sem chave.",
       "Custo, erros e latencia entram na auditoria."
+    ]
+  },
+  {
+    id: "ai-review-ui-activation",
+    title: "Ativar revisao e alternativas da IA na UI",
+    area: "IA assistiva",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Aba Assistente IA exibe score de revisao do draft gerado.",
+      "Usuario aprova itens antes de enviar para importacao JSON.",
+      "Alternativas recomendadas podem virar nota publica ou revisao interna."
     ]
   },
   {

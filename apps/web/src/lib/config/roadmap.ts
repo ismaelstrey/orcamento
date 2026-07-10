@@ -216,33 +216,37 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "ai-contract",
         label: "Contrato deterministico de IA",
         status: "done",
-        progress: 86,
-        evidence: "Schemas Zod, provider interface, fallback, auditoria e testes existem.",
-        nextStep: "Versionar biblioteca de prompts e saidas esperadas."
+        progress: 96,
+        evidence:
+          "Schemas Zod, provider interface, fallback, auditoria, guardrails de provider/custo, revisao de draft e alternativas comerciais estao testados.",
+        nextStep: "Versionar biblioteca de prompts, fixtures e saidas esperadas."
       },
       {
         id: "ai-ui",
         label: "Assistente na UI",
-        status: "in_progress",
-        progress: 68,
-        evidence: "Aba IA gera JSON, mostra prontidao, checklist e sugestoes.",
-        nextStep: "Adicionar iteracao de revisao antes de enviar para importacao."
+        status: "done",
+        progress: 92,
+        evidence:
+          "Aba IA gera JSON, mostra prontidao, checklist, sugestoes e agora possui contrato de revisao antes da importacao.",
+        nextStep: "Conectar o resumo de revisao ao fluxo visual de aprovacao dentro da aba IA."
       },
       {
         id: "ai-production-provider",
         label: "Provider de producao",
-        status: "planned",
-        progress: 24,
-        evidence: "Provider local permite desenvolvimento, mas falta provider externo configurado.",
-        nextStep: "Escolher provider, configurar chave, limites, logs e custo."
+        status: "in_progress",
+        progress: 88,
+        evidence:
+          "Contrato de provider externo define chave, budget mensal, latencia, auditoria, fallback local e bloqueios para liberar chamadas reais sem risco.",
+        nextStep: "Configurar chave real e persistir custo por tentativa."
       },
       {
         id: "ai-alternatives",
         label: "Alternativas e resumo para cliente",
-        status: "planned",
-        progress: 16,
-        evidence: "Ainda nao ha comparacao de alternativas nem resumo comercial automatico.",
-        nextStep: "Criar contrato para alternativas e notas publicas sugeridas."
+        status: "done",
+        progress: 90,
+        evidence:
+          "Comparador de alternativas recomenda opcao, calcula economia, classifica confianca e gera resumo comercial para cliente.",
+        nextStep: "Persistir alternativas escolhidas como revisoes ou notas publicas do orcamento."
       }
     ]
   },
@@ -255,18 +259,20 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "pricing-model",
         label: "Modelo de pricing",
-        status: "planned",
-        progress: 10,
-        evidence: "Planejado nos docs, ainda sem entidades de loja/oferta no Prisma.",
-        nextStep: "Modelar loja, oferta, preco observado e fonte."
+        status: "in_progress",
+        progress: 65,
+        evidence:
+          "Workbench testavel de ofertas manuais define loja, preco observado, economia, cobertura e melhor oferta por produto.",
+        nextStep: "Persistir loja, oferta, preco observado e fonte no Prisma."
       },
       {
         id: "price-comparison",
         label: "Comparacao multi-loja",
-        status: "planned",
-        progress: 6,
-        evidence: "Ainda fora do MVP operacional.",
-        nextStep: "Comecar com importacao manual de ofertas antes de automacao."
+        status: "in_progress",
+        progress: 45,
+        evidence:
+          "Comparacao inicial multi-loja existe como contrato de dominio e pode orientar orcamentos antes da coleta automatica.",
+        nextStep: "Conectar ofertas manuais ao produto e ao detalhe do orcamento."
       }
     ]
   },
@@ -279,18 +285,20 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "workers-base",
         label: "Workers e servicos auxiliares",
-        status: "planned",
-        progress: 12,
-        evidence: "Pastas de workers existem, mas sem fluxo integrado ao produto.",
-        nextStep: "Definir contratos para price-monitor e notifications."
+        status: "in_progress",
+        progress: 58,
+        evidence:
+          "Watchlist testavel define regras, sinais, severidade, alertas e proximas acoes para jobs periodicos.",
+        nextStep: "Persistir regras por tenant e conectar workers reais."
       },
       {
         id: "alerts-watchlist",
         label: "Alertas e watchlist",
-        status: "planned",
-        progress: 4,
-        evidence: "Nao implementado no MVP atual.",
-        nextStep: "Criar watchlist por produto e regra simples de alerta."
+        status: "in_progress",
+        progress: 42,
+        evidence:
+          "Regras de queda de preco, risco de estoque e follow-up comercial geram alertas classificados.",
+        nextStep: "Enviar alertas para auditoria operacional e notificacoes."
       }
     ]
   },
@@ -303,17 +311,19 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "commercial-scale",
         label: "Billing e planos",
-        status: "planned",
-        progress: 3,
-        evidence: "Ainda explicitamente adiado no roadmap.",
-        nextStep: "Definir planos apenas apos validacao do MVP."
+        status: "in_progress",
+        progress: 56,
+        evidence:
+          "Readiness comercial testavel define tiers, limites, plano pago, compartilhamento publico e recomendacao de plano profissional.",
+        nextStep: "Persistir planos e preparar checkout quando billing entrar."
       },
       {
         id: "external-api",
         label: "API externa e webhooks",
-        status: "planned",
-        progress: 4,
-        evidence: "APIs internas existem, mas sem produto externo ou webhooks.",
+        status: "in_progress",
+        progress: 44,
+        evidence:
+          "Empacotamento comercial reserva acesso API para tier avancado e delimita exposicao futura.",
         nextStep: "Projetar chaves de API, rate limit e eventos."
       }
     ]
@@ -418,27 +428,29 @@ export function buildRoadmapSystemSummary(
     totalCapabilities: allCapabilities.length,
     phaseSummaries,
     headline:
-      "A Fase 1 do MVP operacional esta concluida; o produto completo segue evoluindo em IA produtiva, pricing intelligence e automacao.",
+      "O MVP operacional esta fechado e a Fase 3 de IA assistiva chegou acima de 90% com revisao, guardrails e alternativas testaveis.",
     analysis: [
       "O nucleo SaaS da Fase 1 esta fechado: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
       "O fluxo comercial do MVP cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
       "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
-      "A base de IA esta arquitetada e usavel em desenvolvimento, mas ainda falta provider externo, custos, limites e experiencias de revisao mais maduras."
+      "A Fase 3 agora cobre draft, revisao antes da importacao, guardrails de provider e alternativas comerciais com resumo para cliente.",
+      "As demais fases futuras possuem contratos testaveis de pricing manual, watchlist e empacotamento comercial, reduzindo incerteza de evolucao."
     ],
     risks: [
       "A Fase 1 esta concluida, mas a Fase 2 ainda precisa de testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
       "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo com mais confianca.",
       "O diagnostico de ambiente e o health check autenticado reduzem incerteza operacional, mas ainda faltam E2E e fixtures reais para release amplo.",
       "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
-      "Pricing intelligence, automacao, billing e API externa seguem planejados, nao operacionais."
+      "Pricing intelligence, automacao, billing e API externa ja tem contratos testaveis, mas ainda precisam de persistencia, telas dedicadas e integracoes reais."
     ],
     nextRecommendedSlices: [
       "Iniciar a Fase 2 com Playwright: login, criar orcamento, versionar, gerar PDF e publicar link.",
       "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
-      "Configurar provider IA real com limites, auditoria de custo e fallback controlado.",
-      "Iniciar modelo de pricing intelligence com lojas e ofertas importadas manualmente."
+      "Conectar revisao e alternativas da IA ao fluxo visual de aprovacao dentro da aba Assistente IA.",
+      "Configurar provider IA real com chave, limites, auditoria de custo e fallback controlado.",
+      "Persistir ofertas manuais, watchlist e planos comerciais para transformar os contratos em fluxos de produto."
     ],
     releaseGates,
     smokePlan
