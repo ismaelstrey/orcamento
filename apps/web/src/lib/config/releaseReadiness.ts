@@ -125,7 +125,9 @@ function buildSignals(input: {
       score: deliveryScore,
       evidence: `MVP em ${roadmap.mvpProgress}% com ${deliveryPlan.completedThisCycle.length} slices recentes concluidos.`,
       nextStep:
-        "Fechar os slices P0 antes de abrir novas frentes grandes de IA ou pricing."
+        roadmap.mvpProgress >= 100
+          ? "Manter smoke manual e acompanhamento operacional pos-release."
+          : "Fechar os slices P0 antes de abrir novas frentes grandes de IA ou pricing."
     },
     {
       id: "release-gates",
@@ -134,7 +136,9 @@ function buildSignals(input: {
       score: gateScore,
       evidence: `${roadmap.releaseGates.coveredScenarios}/${roadmap.releaseGates.totalScenarios} cenarios possuem cobertura inicial.`,
       nextStep:
-        "Promover os cenarios parciais para testes E2E e integracao com banco."
+        roadmap.releaseGates.partialScenarios === 0
+          ? "Usar E2E e integracao com banco como hardening continuo."
+          : "Promover os cenarios parciais para testes E2E e integracao com banco."
     },
     {
       id: "smoke-readiness",
@@ -143,7 +147,9 @@ function buildSignals(input: {
       score: smokeScore,
       evidence: `${roadmap.smokePlan.readyFlows}/${roadmap.smokePlan.totalFlows} fluxos estao prontos para automacao.`,
       nextStep:
-        "Adicionar fixtures para links publicos e conectar a ferramenta E2E."
+        roadmap.smokePlan.readyFlows === roadmap.smokePlan.totalFlows
+          ? "Executar o smoke recorrente e automatizar com Playwright quando entrar na esteira."
+          : "Adicionar fixtures para links publicos e conectar a ferramenta E2E."
     },
     {
       id: "e2e-tooling",
@@ -154,7 +160,10 @@ function buildSignals(input: {
         roadmap.smokePlan.needsToolingFlows === 0
           ? "Nenhum fluxo depende de ferramenta pendente."
           : `${roadmap.smokePlan.needsToolingFlows} fluxo(s) ainda dependem de ferramenta E2E.`,
-      nextStep: "Instalar Playwright e registrar storage state autenticado."
+      nextStep:
+        roadmap.smokePlan.needsToolingFlows === 0
+          ? "Playwright pode ser adicionado como automacao pos-release."
+          : "Instalar Playwright e registrar storage state autenticado."
     },
     {
       id: "product-depth",
@@ -162,10 +171,12 @@ function buildSignals(input: {
       status: getSignalStatus(operationalDepthScore),
       score: operationalDepthScore,
       evidence: isPhase1Closed(roadmap)
-        ? `Fase 1 fechada e MVP em ${roadmap.mvpProgress}%; produto completo segue em ${roadmap.overallProgress}% por frentes futuras.`
+        ? `Fase 1 fechada, MVP em ${roadmap.mvpProgress}% e produto completo em ${roadmap.overallProgress}%.`
         : `Produto completo em ${roadmap.overallProgress}%, ainda puxado por IA produtiva, pricing e automacao.`,
       nextStep:
-        "Manter o foco no MVP antes de tratar billing, API externa e automacoes futuras."
+        roadmap.overallProgress >= 100
+          ? "Manter operacao e melhorias pos-release priorizadas por uso real."
+          : "Manter o foco no MVP antes de tratar billing, API externa e automacoes futuras."
     }
   ];
 }

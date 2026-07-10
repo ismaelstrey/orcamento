@@ -38,7 +38,10 @@ describe("config/smokePlan", () => {
   it("mantem plano real com fluxos P0 e criterios de aceite", () => {
     const summary = buildSmokePlanSummary();
 
-    expect(summary.readiness).toBeGreaterThanOrEqual(70);
+    expect(summary.readiness).toBe(100);
+    expect(summary.readyFlows).toBe(summary.totalFlows);
+    expect(summary.needsDataFlows).toBe(0);
+    expect(summary.needsToolingFlows).toBe(0);
     expect(summary.totalFlows).toBeGreaterThanOrEqual(6);
     expect(summary.flows.some((flowItem) => flowItem.priority === "p0")).toBe(true);
     expect(

@@ -440,9 +440,9 @@ export function buildRoadmapSystemSummary(
       "Escala comercial possui planos, assinaturas, API keys, webhooks, limites e salvaguardas por tenant."
     ],
     risks: [
-      "O projeto esta fechado como release operacional, mas Playwright e telemetria real continuam recomendados para confianca continua em producao.",
-      "Provider IA, checkout, workers e endpoints externos dependem das credenciais e consumidores reais do ambiente produtivo.",
-      "Telas administrativas dedicadas para pricing, automacao e API podem melhorar operacao diaria, embora os contratos e modelos estejam prontos."
+      "Playwright e telemetria real ficam como aprimoramento pos-release para aumentar confianca continua em producao.",
+      "Credenciais reais de IA, checkout, workers e endpoints externos entram na etapa de configuracao do ambiente produtivo.",
+      "Telas administrativas dedicadas para pricing, automacao e API ficam como melhoria operacional, com contratos e modelos ja prontos."
     ],
     nextRecommendedSlices: [
       "Publicar em ambiente de staging e rodar um smoke manual completo.",

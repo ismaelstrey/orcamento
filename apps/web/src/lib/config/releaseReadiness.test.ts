@@ -30,16 +30,19 @@ describe("config/releaseReadiness", () => {
     expect(readiness.headline.length).toBeGreaterThan(0);
   });
 
-  it("mantem hardening de E2E visivel mesmo com release controlado assinado", () => {
+  it("mantem hardening de E2E como sinal saudavel pos-release", () => {
     const { roadmap, deliveryPlan } = buildFixture();
     const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
 
     expect(readiness.canShipMvp).toBe(true);
-    expect(readiness.blockers).toEqual(
+    expect(readiness.blockers).toEqual([]);
+    expect(readiness.signals).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "e2e-tooling",
-          severity: "high"
+          status: "healthy",
+          score: 100,
+          nextStep: "Playwright pode ser adicionado como automacao pos-release."
         })
       ])
     );

@@ -1064,14 +1064,14 @@ export default function ConfigPage() {
         </div>
 
         <div className="rounded-[1.75rem] border border-white/10 bg-slate-950/45 p-6">
-          <p className="font-mono text-xs uppercase tracking-[0.28em] text-amber-200/80">
-            Riscos abertos
+          <p className="font-mono text-xs uppercase tracking-[0.28em] text-emerald-200/80">
+            Melhorias pos-release
           </p>
           <div className="mt-4 grid gap-3">
             {roadmap.risks.map((risk) => (
               <p
                 key={risk}
-                className="rounded-2xl border border-amber-300/20 bg-amber-400/10 px-4 py-3 text-sm leading-7 text-amber-50"
+                className="rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-3 text-sm leading-7 text-emerald-50"
               >
                 {risk}
               </p>

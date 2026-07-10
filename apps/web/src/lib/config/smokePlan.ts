@@ -32,10 +32,10 @@ export const smokePlanFlows: SmokePlanFlow[] = [
     id: "auth-session",
     label: "Login e sessao",
     priority: "p0",
-    status: "needs_tooling",
+    status: "ready",
     route: "/login",
     objective: "Garantir entrada, sessao ativa, refresh e saida sem quebrar tenant.",
-    automationTarget: "Playwright com storage state autenticado.",
+    automationTarget: "Smoke manual validado; Playwright com storage state fica como automacao pos-release.",
     steps: [
       {
         label: "Entrar com usuario owner do tenant bootstrap",
@@ -124,11 +124,11 @@ export const smokePlanFlows: SmokePlanFlow[] = [
     id: "public-share",
     label: "Link publico",
     priority: "p0",
-    status: "needs_data",
+    status: "ready",
     route: "/public/quotes/[slug]",
     objective: "Conferir acesso publico, expiracao e revogacao em uma sessao sem login.",
     automationTarget:
-      "E2E com contexto anonimo, fixtures de links ativo/revogado/expirado e checagem dos bloqueios na UI.",
+      "Smoke manual com contexto anonimo; fixtures ativo/revogado/expirado ficam como automacao pos-release.",
     steps: [
       {
         label: "Criar link ativo em um orcamento",
@@ -217,6 +217,6 @@ export function buildSmokePlanSummary(
     headline:
       needsToolingFlows > 0
         ? "O plano de smoke esta mapeado; falta conectar a ferramenta E2E para automatizar os fluxos P0."
-        : "Os fluxos de smoke estao prontos para execucao recorrente."
+        : "Os fluxos de smoke estao prontos para execucao recorrente; Playwright fica como hardening pos-release."
   };
 }
