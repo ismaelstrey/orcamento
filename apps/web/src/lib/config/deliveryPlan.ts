@@ -293,6 +293,51 @@ const completedThisCycle: DeliverySlice[] = [
       "Opcao recomendada calcula economia frente a alternativa mais alta.",
       "Resumo comercial orienta a comunicacao com o cliente."
     ]
+  },
+  {
+    id: "quote-pricing-recommendation",
+    title: "Recomendacao de pricing por linha do orcamento",
+    area: "Pricing intelligence",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 6,
+    acceptanceCriteria: [
+      "Linhas do orcamento sao comparadas com a melhor oferta disponivel.",
+      "Resumo calcula economia potencial, linhas otimizadas e lacunas sem oferta.",
+      "Recomendacoes orientam a revisao comercial antes do envio."
+    ]
+  },
+  {
+    id: "automation-runbook",
+    title: "Runbook de automacao para watchlist",
+    area: "Monitoramento",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 6,
+    acceptanceCriteria: [
+      "Alertas viram tarefas priorizadas por severidade.",
+      "Canais internos e externos sao validados antes de execucao.",
+      "Bloqueios impedem jobs agendados sem segredo ou destino seguro."
+    ]
+  },
+  {
+    id: "commercial-api-policy",
+    title: "Politica comercial de API e webhooks",
+    area: "Escala comercial",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 6,
+    acceptanceCriteria: [
+      "API externa respeita tier, limite mensal e consumo atual.",
+      "Webhooks exigem segredo de assinatura e eventos suportados.",
+      "Salvaguardas documentam rate limit, chaves por tenant e revogacao."
+    ]
   }
 ];
 
@@ -354,17 +399,45 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
     ]
   },
   {
-    id: "pricing-manual-offers",
-    title: "Primeiro modelo de lojas e ofertas manuais",
+    id: "pricing-ui-and-persistence",
+    title: "Persistir pricing e expor recomendacoes na UI",
     area: "Pricing intelligence",
-    priority: "p2",
+    priority: "p1",
     effort: "l",
-    impact: "medium",
-    progressLift: 5,
+    impact: "high",
+    progressLift: 4,
     acceptanceCriteria: [
       "Prisma modela loja, oferta e preco observado.",
       "Produto pode receber ofertas importadas manualmente.",
-      "Orcamento mostra referencia de melhor oferta disponivel."
+      "Orcamento mostra economia potencial e melhor oferta por linha."
+    ]
+  },
+  {
+    id: "automation-ui-and-workers",
+    title: "Ativar workers e tela de automacao",
+    area: "Monitoramento",
+    priority: "p1",
+    effort: "l",
+    impact: "high",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Tenant configura regras de watchlist pela aplicacao.",
+      "Worker periodico registra execucoes idempotentes.",
+      "Runbook aparece no dashboard administrativo com status por canal."
+    ]
+  },
+  {
+    id: "commercial-admin-api-console",
+    title: "Console comercial de API e planos",
+    area: "Escala comercial",
+    priority: "p1",
+    effort: "l",
+    impact: "high",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Admin visualiza plano, limites e consumo de API.",
+      "Chaves e webhooks podem ser criados, revogados e auditados.",
+      "Rate limit por tenant protege endpoints externos."
     ]
   }
 ];

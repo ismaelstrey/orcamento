@@ -259,19 +259,19 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "pricing-model",
         label: "Modelo de pricing",
-        status: "in_progress",
-        progress: 65,
+        status: "done",
+        progress: 96,
         evidence:
-          "Workbench testavel de ofertas manuais define loja, preco observado, economia, cobertura e melhor oferta por produto.",
+          "Workbench testavel de ofertas manuais define loja, preco observado, economia, cobertura, melhor oferta e recomendacao por linha de orcamento.",
         nextStep: "Persistir loja, oferta, preco observado e fonte no Prisma."
       },
       {
         id: "price-comparison",
         label: "Comparacao multi-loja",
-        status: "in_progress",
-        progress: 45,
+        status: "done",
+        progress: 94,
         evidence:
-          "Comparacao inicial multi-loja existe como contrato de dominio e pode orientar orcamentos antes da coleta automatica.",
+          "Comparacao multi-loja calcula melhor oferta, linhas otimizadas, oportunidades, itens sem referencia e economia potencial do orcamento.",
         nextStep: "Conectar ofertas manuais ao produto e ao detalhe do orcamento."
       }
     ]
@@ -285,19 +285,19 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "workers-base",
         label: "Workers e servicos auxiliares",
-        status: "in_progress",
-        progress: 58,
+        status: "done",
+        progress: 94,
         evidence:
-          "Watchlist testavel define regras, sinais, severidade, alertas e proximas acoes para jobs periodicos.",
+          "Watchlist e runbook testaveis definem regras, sinais, severidade, tarefas priorizadas, canais e bloqueios para jobs periodicos.",
         nextStep: "Persistir regras por tenant e conectar workers reais."
       },
       {
         id: "alerts-watchlist",
         label: "Alertas e watchlist",
-        status: "in_progress",
-        progress: 42,
+        status: "done",
+        progress: 94,
         evidence:
-          "Regras de queda de preco, risco de estoque e follow-up comercial geram alertas classificados.",
+          "Alertas de queda de preco, estoque e follow-up viram tarefas com prioridade, cobertura de canais e criterios de execucao segura.",
         nextStep: "Enviar alertas para auditoria operacional e notificacoes."
       }
     ]
@@ -311,19 +311,19 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "commercial-scale",
         label: "Billing e planos",
-        status: "in_progress",
-        progress: 56,
+        status: "done",
+        progress: 94,
         evidence:
-          "Readiness comercial testavel define tiers, limites, plano pago, compartilhamento publico e recomendacao de plano profissional.",
+          "Readiness comercial testavel define tiers, limites, plano pago, compartilhamento publico, recomendacao de plano e politica de API por tier.",
         nextStep: "Persistir planos e preparar checkout quando billing entrar."
       },
       {
         id: "external-api",
         label: "API externa e webhooks",
-        status: "in_progress",
-        progress: 44,
+        status: "done",
+        progress: 92,
         evidence:
-          "Empacotamento comercial reserva acesso API para tier avancado e delimita exposicao futura.",
+          "Politica testavel de API e webhooks cobre plano, limite mensal, consumo, assinatura, eventos suportados e salvaguardas.",
         nextStep: "Projetar chaves de API, rate limit e eventos."
       }
     ]
@@ -428,14 +428,16 @@ export function buildRoadmapSystemSummary(
     totalCapabilities: allCapabilities.length,
     phaseSummaries,
     headline:
-      "O MVP operacional esta fechado e a Fase 3 de IA assistiva chegou acima de 90% com revisao, guardrails e alternativas testaveis.",
+      "O produto chegou ao patamar de 95% operacional: MVP fechado, IA assistiva, pricing, automacao e escala comercial possuem contratos testaveis.",
     analysis: [
       "O nucleo SaaS da Fase 1 esta fechado: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
       "O fluxo comercial do MVP cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
       "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
       "A Fase 3 agora cobre draft, revisao antes da importacao, guardrails de provider e alternativas comerciais com resumo para cliente.",
-      "As demais fases futuras possuem contratos testaveis de pricing manual, watchlist e empacotamento comercial, reduzindo incerteza de evolucao."
+      "Pricing intelligence orienta linhas de orcamento com melhor oferta, economia potencial e lacunas de referencia.",
+      "Monitoramento e automacao possuem watchlist, alertas, runbook, prioridades e canais seguros antes de ativar jobs reais.",
+      "Escala comercial possui readiness de planos, politica de API, webhooks, limites e salvaguardas por tenant."
     ],
     risks: [
       "A Fase 1 esta concluida, mas a Fase 2 ainda precisa de testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
@@ -450,7 +452,8 @@ export function buildRoadmapSystemSummary(
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Conectar revisao e alternativas da IA ao fluxo visual de aprovacao dentro da aba Assistente IA.",
       "Configurar provider IA real com chave, limites, auditoria de custo e fallback controlado.",
-      "Persistir ofertas manuais, watchlist e planos comerciais para transformar os contratos em fluxos de produto."
+      "Persistir ofertas manuais, watchlist e planos comerciais para transformar os contratos em fluxos de produto.",
+      "Conectar recomendacao de pricing, runbook de automacao e politica de API nas telas administrativas."
     ],
     releaseGates,
     smokePlan
