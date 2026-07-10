@@ -7,6 +7,14 @@ import {
   type AiQuoteDraftProvider
 } from "./quoteDraft";
 import { createLocalQuoteDraftProvider } from "./localProvider";
+import {
+  createGeminiQuoteDraftProvider,
+  hasGeminiQuoteDraftConfiguration
+} from "./geminiProvider";
+import {
+  createOpenAiQuoteDraftProvider,
+  hasOpenAiQuoteDraftConfiguration
+} from "./openaiProvider";
 
 export interface QuoteDraftProviderCapability {
   providerName: string;
@@ -24,48 +32,96 @@ export interface QuoteDraftProviderCapabilities {
   providers: QuoteDraftProviderCapability[];
 }
 
-function getConfiguredProviderMode(): string {
-  return process.env.AI_QUOTE_DRAFT_PROVIDER?.trim().toLowerCase() ?? "";
+function getConfiguredProviderModes(): string[] {
+  return (
+    process.env.AI_QUOTE_DRAFT_PROVIDER?.split(/[,+\s]+/)
+      .map((mode) => mode.trim().toLowerCase())
+      .filter(Boolean) ?? []
+  );
+}
+
+function buildProviderCapability(input: {
+  providerName: string;
+  mode: QuoteDraftProviderCapability["mode"];
+  description: string;
+}): QuoteDraftProviderCapability {
+  return {
+    ...input,
+    maxCatalogHints: quoteDraftMaxCatalogHints,
+    maxGeneratedItems: quoteDraftMaxGeneratedItems
+  };
 }
 
 /**
  * Centraliza a montagem dos providers de IA sem inicializar SDKs em module scope.
  */
 export function getConfiguredQuoteDraftProviders(): AiQuoteDraftProvider[] {
-  if (getConfiguredProviderMode() === "local") {
-    return [createLocalQuoteDraftProvider()];
+  const providers: AiQuoteDraftProvider[] = [];
+
+  for (const mode of getConfiguredProviderModes()) {
+    if (mode === "openai" && hasOpenAiQuoteDraftConfiguration()) {
+      providers.push(createOpenAiQuoteDraftProvider());
+      continue;
+    }
+
+    if (mode === "gemini" && hasGeminiQuoteDraftConfiguration()) {
+      providers.push(createGeminiQuoteDraftProvider());
+      continue;
+    }
+
+    if (mode === "local") {
+      providers.push(createLocalQuoteDraftProvider());
+    }
   }
 
-  return [];
+  return providers;
 }
 
 /**
- * Expõe quais providers estão disponíveis sem revelar segredos ou configuração sensível.
+ * Expoe quais providers estao disponiveis sem revelar segredos ou configuracao sensivel.
  */
 export function getQuoteDraftProviderCapabilities(): QuoteDraftProviderCapabilities {
-  if (getConfiguredProviderMode() === "local") {
-    return {
-      isEnabled: true,
-      promptVersion: quoteDraftPromptVersion,
-      outputSchemaVersion: quoteDraftOutputSchemaVersion,
-      supportedCurrencies: [...quoteDraftSupportedCurrencies],
-      providers: [
-        {
+  const providers: QuoteDraftProviderCapability[] = [];
+
+  for (const mode of getConfiguredProviderModes()) {
+    if (mode === "openai" && hasOpenAiQuoteDraftConfiguration()) {
+      providers.push(
+        buildProviderCapability({
+          providerName: "openai",
+          mode: "external",
+          description: "Provider externo OpenAI para drafts estruturados."
+        })
+      );
+      continue;
+    }
+
+    if (mode === "gemini" && hasGeminiQuoteDraftConfiguration()) {
+      providers.push(
+        buildProviderCapability({
+          providerName: "gemini",
+          mode: "external",
+          description: "Provider externo Gemini para drafts estruturados."
+        })
+      );
+      continue;
+    }
+
+    if (mode === "local") {
+      providers.push(
+        buildProviderCapability({
           providerName: "local-deterministic",
           mode: "local",
-          description: "Provider determinístico para desenvolvimento e demos.",
-          maxCatalogHints: quoteDraftMaxCatalogHints,
-          maxGeneratedItems: quoteDraftMaxGeneratedItems
-        }
-      ]
-    };
+          description: "Provider deterministico para desenvolvimento e demos."
+        })
+      );
+    }
   }
 
   return {
-    isEnabled: false,
+    isEnabled: providers.length > 0,
     promptVersion: quoteDraftPromptVersion,
     outputSchemaVersion: quoteDraftOutputSchemaVersion,
     supportedCurrencies: [...quoteDraftSupportedCurrencies],
-    providers: []
+    providers
   };
 }
