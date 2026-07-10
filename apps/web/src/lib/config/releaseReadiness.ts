@@ -1,7 +1,5 @@
 import type { DeliveryPlanSummary, DeliverySlice } from "./deliveryPlan";
-import type { ReleaseGateSummary } from "./releaseGates";
 import type { RoadmapPhaseSummary, RoadmapSystemSummary } from "./roadmap";
-import type { SmokePlanSummary } from "./smokePlan";
 
 export type ReleaseReadinessTone = "success" | "warning" | "danger";
 export type ReleaseReadinessBlockerSeverity = "critical" | "high" | "medium";
@@ -71,10 +69,6 @@ function getSignalStatus(score: number): ReleaseReadinessSignalStatus {
   }
 
   return "blocked";
-}
-
-function scoreBoolean(value: boolean): number {
-  return value ? 100 : 0;
 }
 
 function countDone(items: ReleaseReadinessChecklistItem[]): number {

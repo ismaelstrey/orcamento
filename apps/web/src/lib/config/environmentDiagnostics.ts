@@ -217,7 +217,7 @@ export function buildEnvironmentDiagnosticSummary(
     databaseUrl.database === directUrl.database;
   const allConfigured = databaseUrls.every((item) => item.configured);
   const allPostgres = databaseUrls.every((item) => item.provider === "postgres");
-  const checks = [
+  const checks: EnvironmentDiagnosticSummary["checks"] = [
     {
       id: "configured",
       label: "Variaveis configuradas",
@@ -251,8 +251,8 @@ export function buildEnvironmentDiagnosticSummary(
           item.isNeon &&
           (!item.connectionLimit || !item.poolTimeout || !item.connectTimeout)
       )
-        ? "warning"
-        : "ok",
+        ? ("warning" as const)
+        : ("ok" as const),
       detail:
         "Para Neon, prefira porta explicita, SSL obrigatorio, limite de conexao e timeouts."
     }
