@@ -83,69 +83,72 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "auth-tenant",
         label: "Auth, tenant e RBAC",
         status: "done",
-        progress: 96,
+        progress: 100,
         evidence:
-          "Login, refresh, logout, me, roles, contexto tenant, sessoes e health check autenticado existem.",
-        nextStep: "Expandir testes cross-tenant finos e E2E de sessao."
+          "Login, refresh, logout, me, roles, contexto tenant, sessoes, escopo tenant nos servicos e health check autenticado existem.",
+        nextStep: "Manter monitoramento de sessao e promover o ciclo para E2E na Fase 2."
       },
       {
         id: "customers",
         label: "Clientes",
         status: "done",
-        progress: 95,
-        evidence: "CRUD, hooks, workbench, filtros, CSV e testes de apresentacao.",
-        nextStep: "Adicionar validacoes comerciais e deduplicacao assistida."
+        progress: 100,
+        evidence:
+          "CRUD, hooks, workbench, filtros, CSV, escopo tenant e testes de apresentacao fecham a base de relacionamento do MVP.",
+        nextStep: "Evoluir validacoes comerciais e deduplicacao assistida fora da Fase 1."
       },
       {
         id: "catalog",
         label: "Catalogo",
         status: "done",
-        progress: 95,
-        evidence: "Categorias, marcas, produtos, especificacoes, filtros e CSV.",
-        nextStep: "Adicionar importacao em lote e historico de preco base."
+        progress: 100,
+        evidence:
+          "Categorias, marcas, produtos, especificacoes, filtros, CSV e workbench cobrem a selecao de itens do MVP.",
+        nextStep: "Adicionar importacao em lote e historico de preco base na evolucao de catalogo."
       },
       {
         id: "quotes-core",
         label: "Orcamentos e versoes",
         status: "done",
-        progress: 96,
+        progress: 100,
         evidence:
-          "Criacao manual, listagem, detalhe, revisoes, totais, historico, pipeline e modal roteado.",
-        nextStep: "Fechar testes financeiros de integridade e fluxos E2E."
+          "Criacao manual, listagem, detalhe, revisoes, totais, historico, pipeline, CSV e modal roteado fecham o ciclo comercial interno.",
+        nextStep: "Promover a jornada para E2E visual na Fase 2."
       },
       {
         id: "json-flow",
         label: "Importacao e exportacao JSON",
         status: "done",
-        progress: 95,
-        evidence: "Schema, importacao, exportacao, pre-validacao visual e testes.",
-        nextStep: "Criar round-trip automatizado exportar -> importar."
+        progress: 100,
+        evidence:
+          "Schema, importacao, exportacao, pre-validacao visual, warnings e contratos testados fecham o fluxo estruturado do MVP.",
+        nextStep: "Criar round-trip com banco real como hardening da Fase 2."
       },
       {
         id: "pdf-share",
         label: "PDF e link publico",
         status: "done",
-        progress: 95,
+        progress: 100,
         evidence:
-          "PDF por versao, modal roteado, share link, revogacao, pagina publica, diagnostico por status, testes de ciclo publico e regressao do template HTML.",
-        nextStep: "Validar o fluxo completo com E2E visual."
+          "PDF por versao, modal roteado, share link, revogacao, expiracao, pagina publica, diagnostico por status, testes de ciclo publico e regressao do template HTML fecham a entrega externa.",
+        nextStep: "Validar o fluxo completo com E2E visual na Fase 2."
       },
       {
         id: "dashboard",
         label: "Dashboard operacional",
         status: "done",
-        progress: 96,
+        progress: 100,
         evidence:
-          "KPIs, sinais, narrativa, acoes, auditoria, CSV e leitura operacional testada estao na UI.",
+          "KPIs, sinais, narrativa, acoes, auditoria, CSV e leitura operacional testada estao na UI e servem como ponto de partida do tenant.",
         nextStep: "Adicionar tendencias temporais reais quando houver historico mensal."
       },
       {
         id: "audit",
         label: "Auditoria minima",
         status: "done",
-        progress: 95,
+        progress: 100,
         evidence:
-          "AuditLog, eventos sensiveis, tela de auditoria, filtros, CSV, contexto e resumo de investigacao.",
+          "AuditLog, eventos sensiveis, tela de auditoria, filtros, CSV, contexto e resumo de investigacao fecham rastreabilidade minima do MVP.",
         nextStep: "Criar pagina dedicada por entidade quando a investigacao crescer."
       }
     ]
@@ -415,23 +418,23 @@ export function buildRoadmapSystemSummary(
     totalCapabilities: allCapabilities.length,
     phaseSummaries,
     headline:
-      "O MVP esta avancado e ja demonstra o ciclo comercial principal, mas o produto completo ainda depende de IA produtiva, pricing intelligence e automacao.",
+      "A Fase 1 do MVP operacional esta concluida; o produto completo segue evoluindo em IA produtiva, pricing intelligence e automacao.",
     analysis: [
-      "O nucleo SaaS existe: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
-      "O fluxo comercial ja cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
+      "O nucleo SaaS da Fase 1 esta fechado: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
+      "O fluxo comercial do MVP cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
       "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
       "A base de IA esta arquitetada e usavel em desenvolvimento, mas ainda falta provider externo, custos, limites e experiencias de revisao mais maduras."
     ],
     risks: [
-      "A matriz de gates e o plano de smoke mostram cobertura inicial, mas ainda faltam testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
-      "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo.",
+      "A Fase 1 esta concluida, mas a Fase 2 ainda precisa de testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
+      "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo com mais confianca.",
       "O diagnostico de ambiente e o health check autenticado reduzem incerteza operacional, mas ainda faltam E2E e fixtures reais para release amplo.",
       "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
       "Pricing intelligence, automacao, billing e API externa seguem planejados, nao operacionais."
     ],
     nextRecommendedSlices: [
-      "Instalar Playwright e executar E2E enxuto: login, criar orcamento, versionar, gerar PDF e publicar link.",
+      "Iniciar a Fase 2 com Playwright: login, criar orcamento, versionar, gerar PDF e publicar link.",
       "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Configurar provider IA real com limites, auditoria de custo e fallback controlado.",

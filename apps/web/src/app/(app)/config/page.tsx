@@ -21,6 +21,10 @@ import {
   buildEnvironmentDiagnosticSummary,
   type EnvironmentDiagnosticStatus
 } from "@/lib/config/environmentDiagnostics";
+import {
+  buildPhase1CompletionSummary,
+  type Phase1CriterionStatus
+} from "@/lib/config/phase1Completion";
 import type {
   ReleaseGateLayer,
   ReleaseGateStatus,
@@ -306,6 +310,16 @@ function getDeliveryStatusClassName(status: DeliverySliceStatus): string {
   return "border-white/10 bg-white/5 text-slate-300";
 }
 
+function getPhase1CriterionStatusClassName(
+  status: Phase1CriterionStatus
+): string {
+  if (status === "done") {
+    return "border-emerald-300/20 bg-emerald-400/10 text-emerald-100";
+  }
+
+  return "border-amber-300/20 bg-amber-400/10 text-amber-100";
+}
+
 function ProgressBar({ value }: { value: number }) {
   return (
     <div className="h-2 overflow-hidden rounded-full bg-white/10">
@@ -319,6 +333,7 @@ function ProgressBar({ value }: { value: number }) {
 
 export default function ConfigPage() {
   const roadmap = buildRoadmapSystemSummary();
+  const phase1Completion = buildPhase1CompletionSummary(roadmap);
   const deliveryPlan = buildDeliveryPlanSummary(roadmap);
   const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
   const environmentDiagnostics = buildEnvironmentDiagnosticSummary({
@@ -406,6 +421,83 @@ export default function ConfigPage() {
             <p className="mt-1 text-sm text-slate-400">
               Dados em lib/config/roadmap.ts.
             </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] border border-emerald-300/20 bg-emerald-400/10 p-6">
+        <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr]">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.28em] text-emerald-100/80">
+              Fase 1
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">
+              {phase1Completion.phaseLabel}
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-emerald-50/85">
+              {phase1Completion.headline}
+            </p>
+
+            <div className="mt-5 rounded-2xl border border-emerald-300/20 bg-slate-950/30 p-5">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.2em] text-emerald-100/80">
+                    Conclusao operacional
+                  </p>
+                  <p className="mt-2 text-5xl font-semibold text-white">
+                    {phase1Completion.progress}%
+                  </p>
+                </div>
+                <span className="rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-1 font-mono text-xs uppercase tracking-[0.16em] text-emerald-100">
+                  {phase1Completion.isComplete ? "Concluida" : "Atencao"}
+                </span>
+              </div>
+              <div className="mt-4">
+                <ProgressBar value={phase1Completion.progress} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              {phase1Completion.criteria.map((criterion) => (
+                <article
+                  key={criterion.id}
+                  className={classNames(
+                    "rounded-2xl border p-4",
+                    getPhase1CriterionStatusClassName(criterion.status)
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-base font-semibold text-white">
+                      {criterion.label}
+                    </h3>
+                    <span className="rounded-full border border-white/10 bg-slate-950/35 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-white">
+                      {criterion.status === "done" ? "Ok" : "Revisar"}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 opacity-85">
+                    {criterion.evidence}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-4">
+              <p className="font-mono text-xs uppercase tracking-[0.22em] text-emerald-100/80">
+                Proximo foco fora da Fase 1
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-3">
+                {phase1Completion.nextQualityFocus.map((focus) => (
+                  <p
+                    key={focus}
+                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs leading-5 text-emerald-50"
+                  >
+                    {focus}
+                  </p>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

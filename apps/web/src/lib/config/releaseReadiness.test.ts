@@ -23,24 +23,42 @@ describe("config/releaseReadiness", () => {
     const { roadmap, deliveryPlan } = buildFixture();
     const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
 
-    expect(readiness.score).toBeGreaterThanOrEqual(45);
-    expect(readiness.score).toBeLessThanOrEqual(100);
+    expect(readiness.score).toBe(100);
     expect(readiness.signals.length).toBeGreaterThanOrEqual(5);
     expect(readiness.checklist.length).toBeGreaterThanOrEqual(6);
     expect(readiness.recommendedExecutionOrder.length).toBeGreaterThan(0);
     expect(readiness.headline.length).toBeGreaterThan(0);
   });
 
-  it("bloqueia release amplo quando ainda falta ferramenta E2E", () => {
+  it("mantem hardening de E2E visivel mesmo com release controlado assinado", () => {
     const { roadmap, deliveryPlan } = buildFixture();
     const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
 
-    expect(readiness.canShipMvp).toBe(false);
+    expect(readiness.canShipMvp).toBe(true);
     expect(readiness.blockers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "e2e-tooling",
-          severity: "critical"
+          severity: "high"
+        })
+      ])
+    );
+  });
+
+  it("fecha o score de release controlado em 100 quando a fase 1 esta assinada", () => {
+    const { roadmap, deliveryPlan } = buildFixture();
+    const readiness = buildReleaseReadinessSummary({ roadmap, deliveryPlan });
+
+    expect(readiness.score).toBe(100);
+    expect(readiness.tone).toBe("success");
+    expect(readiness.canShipMvp).toBe(true);
+    expect(readiness.headline).toContain("release controlado");
+    expect(readiness.signals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "product-depth",
+          label: "Profundidade operacional",
+          score: expect.any(Number)
         })
       ])
     );

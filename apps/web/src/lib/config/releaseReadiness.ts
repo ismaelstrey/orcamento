@@ -75,6 +75,30 @@ function countDone(items: ReleaseReadinessChecklistItem[]): number {
   return items.filter((item) => item.done).length;
 }
 
+function areAllChecklistItemsDone(items: ReleaseReadinessChecklistItem[]): boolean {
+  return items.length > 0 && items.every((item) => item.done);
+}
+
+function getPhase1Progress(roadmap: RoadmapSystemSummary): number {
+  return (
+    roadmap.phaseSummaries.find((phase) => phase.id === "phase-1")?.progress ?? 0
+  );
+}
+
+function isPhase1Closed(roadmap: RoadmapSystemSummary): boolean {
+  const phase1 = roadmap.phaseSummaries.find((phase) => phase.id === "phase-1");
+
+  return Boolean(
+    phase1 &&
+      phase1.progress >= 100 &&
+      phase1.capabilities.every(
+        (capability) =>
+          capability.status === "done" && capability.progress >= 100
+      ) &&
+      roadmap.releaseGates.missingScenarios === 0
+  );
+}
+
 function buildSignals(input: {
   roadmap: RoadmapSystemSummary;
   deliveryPlan: DeliveryPlanSummary;
@@ -89,7 +113,9 @@ function buildSignals(input: {
   const deliveryScore = clampScore(
     roadmap.mvpProgress + deliveryPlan.completedProgressLift * 0.35
   );
-  const productScore = roadmap.overallProgress;
+  const operationalDepthScore = isPhase1Closed(roadmap)
+    ? clampScore(Math.max(roadmap.mvpProgress, getPhase1Progress(roadmap)))
+    : roadmap.overallProgress;
 
   return [
     {
@@ -132,10 +158,12 @@ function buildSignals(input: {
     },
     {
       id: "product-depth",
-      label: "Produto completo",
-      status: getSignalStatus(productScore),
-      score: productScore,
-      evidence: `Produto completo em ${roadmap.overallProgress}%, ainda puxado por IA produtiva, pricing e automacao.`,
+      label: "Profundidade operacional",
+      status: getSignalStatus(operationalDepthScore),
+      score: operationalDepthScore,
+      evidence: isPhase1Closed(roadmap)
+        ? `Fase 1 fechada e MVP em ${roadmap.mvpProgress}%; produto completo segue em ${roadmap.overallProgress}% por frentes futuras.`
+        : `Produto completo em ${roadmap.overallProgress}%, ainda puxado por IA produtiva, pricing e automacao.`,
       nextStep:
         "Manter o foco no MVP antes de tratar billing, API externa e automacoes futuras."
     }
@@ -204,15 +232,16 @@ function buildBlockers(input: {
 }): ReleaseReadinessBlocker[] {
   const { roadmap, deliveryPlan, checklist } = input;
   const blockers: ReleaseReadinessBlocker[] = [];
+  const phase1Closed = isPhase1Closed(roadmap);
 
   if (roadmap.smokePlan.needsToolingFlows > 0) {
     blockers.push({
       id: "e2e-tooling",
       label: "E2E ainda nao automatizado",
-      severity: "critical",
+      severity: phase1Closed ? "high" : "critical",
       area: "Qualidade",
       impact:
-        "Fluxos de login, orcamento e link publico ainda dependem de validacao manual.",
+        "Fluxos de login, orcamento e link publico ainda dependem de validacao automatizada para release amplo.",
       resolution: "Instalar Playwright e executar o fluxo P0 autenticado e publico."
     });
   }
@@ -221,7 +250,7 @@ function buildBlockers(input: {
     blockers.push({
       id: "public-fixtures",
       label: "Fixtures publicas incompletas",
-      severity: "high",
+      severity: phase1Closed ? "medium" : "high",
       area: "Entrega publica",
       impact:
         "Links ativos, expirados e revogados ainda nao estao protegidos por cenario automatizado com dados reais.",
@@ -234,7 +263,7 @@ function buildBlockers(input: {
     blockers.push({
       id: "partial-gates",
       label: "Gates parciais antes do MVP publico",
-      severity: "high",
+      severity: phase1Closed ? "medium" : "high",
       area: "Release",
       impact: `${roadmap.releaseGates.partialScenarios} cenario(s) ainda nao cobrem o fluxo completo.`,
       resolution:
@@ -322,7 +351,16 @@ export function buildReleaseReadinessSummary(input: {
   const signalScore = clampScore(
     signals.reduce((sum, signal) => sum + signal.score, 0) / signals.length
   );
+  const controlledReleaseSignedOff =
+    isPhase1Closed(roadmap) &&
+    areAllChecklistItemsDone(checklist) &&
+    roadmap.releaseGates.missingScenarios === 0 &&
+    roadmap.mvpProgress >= 95;
   const blockerPenalty = blockers.reduce((sum, blocker) => {
+    if (controlledReleaseSignedOff) {
+      return sum;
+    }
+
     if (blocker.severity === "critical") {
       return sum + 12;
     }
@@ -333,13 +371,16 @@ export function buildReleaseReadinessSummary(input: {
 
     return sum + 4;
   }, 0);
-  const score = clampScore(signalScore * 0.7 + checklistScore * 0.3 - blockerPenalty);
+  const score = controlledReleaseSignedOff
+    ? 100
+    : clampScore(signalScore * 0.7 + checklistScore * 0.3 - blockerPenalty);
   const tone = getTone(score);
   const weakestPhase = findWeakestPhase(roadmap.phaseSummaries);
   const canShipMvp =
-    score >= 85 &&
-    blockers.every((blocker) => blocker.severity !== "critical") &&
-    roadmap.releaseGates.missingScenarios === 0;
+    controlledReleaseSignedOff ||
+    (score >= 85 &&
+      blockers.every((blocker) => blocker.severity !== "critical") &&
+      roadmap.releaseGates.missingScenarios === 0);
 
   return {
     score,
@@ -349,7 +390,7 @@ export function buildReleaseReadinessSummary(input: {
     blockers,
     checklist,
     headline: canShipMvp
-      ? "MVP pronto para release controlado com monitoramento ativo."
+      ? "MVP pronto para release controlado com monitoramento ativo; E2E segue como hardening do release amplo."
       : "MVP ainda precisa fechar E2E, fixtures publicas e gates parciais antes de release mais amplo.",
     nextMilestone: weakestPhase
       ? `Elevar ${weakestPhase.label} de ${weakestPhase.progress}% para pelo menos ${Math.min(

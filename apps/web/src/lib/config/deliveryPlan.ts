@@ -173,6 +173,36 @@ const completedThisCycle: DeliverySlice[] = [
       "Conteudo dinamico e escapado contra injecao HTML.",
       "Notas publicas opcionais nao criam secao vazia."
     ]
+  },
+  {
+    id: "phase-1-operational-closure",
+    title: "Fechamento operacional da Fase 1",
+    area: "Governanca do produto",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Roadmap marca todas as capacidades da Fase 1 como concluidas.",
+      "Resumo testavel de conclusao da Fase 1 aparece na aplicacao.",
+      "E2E e hardening de banco seguem separados como qualidade da Fase 2."
+    ]
+  },
+  {
+    id: "controlled-release-signoff",
+    title: "Assinatura do release controlado",
+    area: "Release readiness",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 2,
+    acceptanceCriteria: [
+      "Score de release chega a 100 quando Fase 1, checklist e gates criticos estao fechados.",
+      "Itens de E2E, fixtures e gates parciais continuam visiveis como hardening de release amplo.",
+      "Teste automatizado garante que a leitura de release controlado permanece estavel."
+    ]
   }
 ];
 
