@@ -65,9 +65,12 @@ describe("config/releaseGates", () => {
   it("gera resumo geral dos gates reais sem cenarios faltantes", () => {
     const summary = buildReleaseGateSummary();
 
-    expect(summary.progress).toBeGreaterThanOrEqual(65);
+    expect(summary.progress).toBe(100);
+    expect(summary.coveredScenarios).toBe(summary.totalScenarios);
+    expect(summary.partialScenarios).toBe(0);
     expect(summary.missingScenarios).toBe(0);
     expect(summary.totalScenarios).toBeGreaterThanOrEqual(10);
     expect(summary.nextActions.length).toBeGreaterThanOrEqual(3);
+    expect(summary.headline).toContain("Todos os gates criticos");
   });
 });

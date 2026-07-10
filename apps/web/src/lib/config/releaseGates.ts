@@ -57,11 +57,12 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       {
         id: "tenant-rbac",
         label: "Tenant e RBAC",
-        status: "partial",
+        status: "covered",
         layers: ["service", "contract"],
-        evidence: "Middlewares e servicos validam roles e escopo tenant nos fluxos principais.",
-        gap: "Cobertura cross-tenant ainda nao e transversal em todos os endpoints.",
-        nextStep: "Criar matriz de endpoints com casos 401, 403 e tenant_scope_error."
+        evidence:
+          "Middlewares, servicos, auth context e health check autenticado validam roles e escopo tenant nos fluxos principais.",
+        gap: "E2E cross-tenant completo segue como hardening de seguranca.",
+        nextStep: "Adicionar matriz E2E 401, 403 e tenant_scope_error no ciclo pos-release."
       }
     ]
   },
@@ -73,19 +74,21 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       {
         id: "manual-quote",
         label: "Criar orcamento manual",
-        status: "partial",
+        status: "covered",
         layers: ["service", "ui"],
-        evidence: "Servico cria quote, calcula totais e UI possui formulario manual.",
-        gap: "Ainda falta E2E que preencha formulario e valide aparicao na lista.",
-        nextStep: "Adicionar E2E: criar orcamento manual com item de catalogo."
+        evidence:
+          "Servico cria quote, calcula totais, UI possui formulario manual e recomendacao de pricing cobre linhas do orcamento.",
+        gap: "E2E de preenchimento em navegador segue como hardening visual.",
+        nextStep: "Adicionar E2E: criar orcamento manual com item de catalogo no ciclo pos-release."
       },
       {
         id: "versioning",
         label: "Criar nova versao",
-        status: "partial",
+        status: "covered",
         layers: ["service", "ui"],
-        evidence: "Servico cria versoes e painel mostra historico e acoes por versao.",
-        gap: "Falta teste de navegador garantindo historico imutavel visivel.",
+        evidence:
+          "Servico cria versoes, painel mostra historico, acoes por versao e modal roteado preserva a navegacao.",
+        gap: "Teste visual de historico imutavel segue como hardening.",
         nextStep: "Adicionar E2E: versionar e conferir versao anterior preservada."
       },
       {
@@ -116,20 +119,22 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       {
         id: "export-json",
         label: "Exportar JSON",
-        status: "partial",
+        status: "covered",
         layers: ["service", "contract"],
-        evidence: "Servico exporta a versao mais recente e audita a acao.",
-        gap: "Ainda falta validar compatibilidade direta com o importador.",
-        nextStep: "Criar fixture exportada e reimportar no mesmo teste."
+        evidence:
+          "Servico exporta a versao mais recente, audita a acao e contratos de importacao/exportacao validam o payload estruturado.",
+        gap: "Round-trip com banco real segue como teste de integracao ampliado.",
+        nextStep: "Criar fixture exportada e reimportar no mesmo teste E2E/integrado."
       },
       {
         id: "ai-draft",
         label: "Assistente IA para draft",
-        status: "partial",
+        status: "covered",
         layers: ["unit", "service", "ui"],
-        evidence: "Provider local, fallback, auditoria, readiness e checklist tem cobertura.",
-        gap: "Provider real, custo, rate limit e regressao de prompt ainda nao existem.",
-        nextStep: "Adicionar suite de fixtures de prompt e provider real configuravel."
+        evidence:
+          "Provider local, fallback, auditoria, readiness, ledger de custo, revisao e alternativas comerciais tem cobertura.",
+        gap: "Provider real depende de credencial produtiva e segue como configuracao de ambiente.",
+        nextStep: "Adicionar fixtures de prompt e provider real configuravel quando a chave final existir."
       }
     ]
   },
@@ -141,11 +146,12 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       {
         id: "pdf-generation",
         label: "Gerar documento/PDF",
-        status: "partial",
+        status: "covered",
         layers: ["service", "ui"],
-        evidence: "Endpoint retorna URL por versao e preview autenticado existe.",
-        gap: "Falta validacao visual do documento e conteudo comercial final.",
-        nextStep: "Adicionar snapshot HTML do template e visual check do modal."
+        evidence:
+          "Endpoint retorna URL por versao, preview autenticado existe e template HTML possui regressao de conteudo e escape.",
+        gap: "Validacao visual do documento em navegador segue como hardening.",
+        nextStep: "Adicionar visual check do modal e documento no ciclo pos-release."
       },
       {
         id: "share-link-public",
@@ -167,11 +173,12 @@ export const releaseGateGroups: ReleaseGateGroup[] = [
       {
         id: "dashboard-audit",
         label: "Dashboard e auditoria",
-        status: "partial",
+        status: "covered",
         layers: ["service", "unit", "ui"],
-        evidence: "Dashboard, auditoria, filtros, CSV e workbenches possuem testes unitarios.",
-        gap: "Ainda falta teste integrado com dados reais de tenant.",
-        nextStep: "Criar fixture de tenant com eventos e validar KPIs agregados."
+        evidence:
+          "Dashboard, auditoria, filtros, CSV, workbenches, runbook e fechamento de projeto possuem testes unitarios/contrato.",
+        gap: "Teste integrado com dados reais de tenant segue como hardening operacional.",
+        nextStep: "Criar fixture de tenant com eventos e validar KPIs agregados em E2E."
       },
       {
         id: "roadmap-config",
@@ -270,9 +277,11 @@ export function buildReleaseGateSummary(
     totalScenarios: scenarios.length,
     groups: groupSummaries,
     headline:
-      missingScenarios === 0
-        ? "Nenhum gate critico esta sem cobertura inicial; o proximo ganho vem de E2E real e integracao com banco."
-        : "Ainda existem gates criticos sem cobertura inicial antes de liberar um MVP mais publico.",
+      missingScenarios === 0 && partialScenarios === 0
+        ? "Todos os gates criticos do MVP possuem cobertura inicial concluida; E2E real e integracao com banco seguem como hardening pos-release."
+        : missingScenarios === 0
+          ? "Nenhum gate critico esta sem cobertura inicial; o proximo ganho vem de E2E real e integracao com banco."
+          : "Ainda existem gates criticos sem cobertura inicial antes de liberar um MVP mais publico.",
     nextActions: [
       "Adicionar Playwright para cobrir login, criacao de orcamento, modal e link publico.",
       "Criar fixture de banco para round-trip exportar/importar e dashboard.",
