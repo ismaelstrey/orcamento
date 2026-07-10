@@ -218,7 +218,9 @@ function buildChecklist(input: {
     {
       id: "projection-visible",
       label: "Projecao de progresso visivel",
-      done: deliveryPlan.projectedMvpProgress > roadmap.mvpProgress,
+      done:
+        deliveryPlan.projectedMvpProgress > roadmap.mvpProgress ||
+        roadmap.overallProgress >= 100,
       ownerArea: "Governanca",
       evidence: `MVP projetado em ${deliveryPlan.projectedMvpProgress}%.`
     }

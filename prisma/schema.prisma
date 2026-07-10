@@ -38,6 +38,37 @@ enum ProductOfferSource {
   crawler_future
 }
 
+enum WatchlistRuleType {
+  price_drop
+  stock_risk
+  quote_follow_up
+}
+
+enum AutomationRunStatus {
+  queued
+  running
+  succeeded
+  failed
+}
+
+enum CommercialPlanTier {
+  starter
+  professional
+  enterprise
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+}
+
+enum ExternalApiKeyStatus {
+  active
+  revoked
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -45,18 +76,24 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users           User[]
-  roles           Role[]
-  sessions        AuthSession[]
-  customers       Customer[]
-  categories      Category[]
-  brands          Brand[]
-  products        Product[]
-  priceStores     PriceStore[]
-  productOffers   ProductOffer[]
-  quotes          Quote[]
-  quoteShareLinks QuoteShareLink[]
-  auditLogs       AuditLog[]
+  users            User[]
+  roles            Role[]
+  sessions         AuthSession[]
+  customers        Customer[]
+  categories       Category[]
+  brands           Brand[]
+  products         Product[]
+  priceStores      PriceStore[]
+  productOffers    ProductOffer[]
+  watchlistRules   WatchlistRule[]
+  automationRuns   AutomationRun[]
+  commercialPlans  CommercialPlan[]
+  subscriptions    TenantSubscription[]
+  externalApiKeys  ExternalApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+  quotes           Quote[]
+  quoteShareLinks  QuoteShareLink[]
+  auditLogs        AuditLog[]
 }
 
 model User {
@@ -250,6 +287,113 @@ model ProductOffer {
   @@index([tenantId, storeId])
   @@index([tenantId, source])
   @@index([productId, priceCents])
+}
+
+model WatchlistRule {
+  id               String            @id @default(cuid())
+  tenantId         String
+  type             WatchlistRuleType
+  targetId         String
+  label            String
+  thresholdPercent Int?
+  maxAgeDays       Int?
+  enabled          Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   AutomationRun[]
+
+  @@index([tenantId, type])
+  @@index([tenantId, targetId])
+  @@index([tenantId, enabled])
+}
+
+model AutomationRun {
+  id           String              @id @default(cuid())
+  tenantId     String
+  ruleId       String?
+  status       AutomationRunStatus @default(queued)
+  channel      String?
+  payloadJson  Json?
+  startedAt    DateTime            @default(now())
+  finishedAt   DateTime?
+  errorMessage String?
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rule   WatchlistRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, startedAt])
+  @@index([ruleId, startedAt])
+}
+
+model CommercialPlan {
+  id                    String             @id @default(cuid())
+  tenantId              String
+  tier                  CommercialPlanTier
+  code                  String
+  name                  String
+  monthlyPriceCents     Int
+  userLimit             Int
+  quoteLimit            Int
+  includesPublicSharing Boolean            @default(false)
+  includesApiAccess     Boolean            @default(false)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscriptions TenantSubscription[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, tier])
+}
+
+model TenantSubscription {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  planId             String
+  status             SubscriptionStatus @default(trialing)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   CommercialPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@index([planId])
+}
+
+model ExternalApiKey {
+  id         String               @id @default(cuid())
+  tenantId   String
+  name       String
+  keyHash    String
+  status     ExternalApiKeyStatus @default(active)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime             @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, name])
+}
+
+model WebhookEndpoint {
+  id                String   @id @default(cuid())
+  tenantId          String
+  url               String
+  signingSecretHash String
+  eventsJson        Json
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
 }
 
 model Quote {

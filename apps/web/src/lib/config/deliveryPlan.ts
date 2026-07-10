@@ -383,6 +383,66 @@ const completedThisCycle: DeliverySlice[] = [
       "Precos antigos entram no proximo ciclo de importacao.",
       "Resumo de frescor orienta quando coletar ou importar novamente."
     ]
+  },
+  {
+    id: "project-quality-closure",
+    title: "Fechamento de qualidade do projeto",
+    area: "Qualidade",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Gates de teste, lint, typecheck e build ficam consolidados.",
+      "Resumo de conclusao diferencia release operacional de melhoria continua.",
+      "Roadmap pode chegar a 100% com evidencias de validacao."
+    ]
+  },
+  {
+    id: "ai-cost-ledger",
+    title: "Ledger de custo e latencia da IA",
+    area: "IA assistiva",
+    priority: "p1",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Tentativas de IA calculam custo, sucesso, fallback e latencia media.",
+      "Provider externo so fica liberado com budget e auditoria ativos.",
+      "Bloqueios ficam explicitos para operacao em producao."
+    ]
+  },
+  {
+    id: "automation-persistence-foundation",
+    title: "Persistencia de automacao e execucoes",
+    area: "Monitoramento",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Prisma modela WatchlistRule e AutomationRun por tenant.",
+      "Contrato valida regras ativas, segredo de worker e execucoes orfas.",
+      "Workers ficam liberados apenas quando a base persistida esta coerente."
+    ]
+  },
+  {
+    id: "commercial-governance-foundation",
+    title: "Governanca comercial persistivel",
+    area: "Escala comercial",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Prisma modela planos, assinaturas, chaves API e webhooks.",
+      "Contrato valida assinatura ativa, tier API, chave e endpoint assinado.",
+      "Salvaguardas de revogacao e assinatura ficam documentadas no dominio."
+    ]
   }
 ];
 
@@ -399,6 +459,20 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
       "Login, criacao de orcamento e modal roteado passam em navegador real.",
       "Link publico ativo e revogado sao validados em contexto anonimo.",
       "A pagina /config entra no smoke visual autenticado."
+    ]
+  },
+  {
+    id: "staging-smoke-runbook",
+    title: "Smoke manual de staging pos-fechamento",
+    area: "Release operacional",
+    priority: "p0",
+    effort: "s",
+    impact: "high",
+    progressLift: 2,
+    acceptanceCriteria: [
+      "Login, dashboard, orcamento, PDF e link publico sao validados em staging.",
+      "Resultado do smoke fica registrado como evidencia do release.",
+      "Falhas viram regressao prioritaria antes de producao."
     ]
   },
   {
@@ -459,7 +533,7 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
   },
   {
     id: "automation-ui-and-workers",
-    title: "Ativar workers e tela de automacao",
+    title: "Agendar workers e tela de automacao",
     area: "Monitoramento",
     priority: "p1",
     effort: "l",
@@ -473,7 +547,7 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
   },
   {
     id: "commercial-admin-api-console",
-    title: "Console comercial de API e planos",
+    title: "Console operacional de API e planos",
     area: "Escala comercial",
     priority: "p1",
     effort: "l",

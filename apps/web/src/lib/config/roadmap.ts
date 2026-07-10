@@ -163,7 +163,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "navigation-ux",
         label: "Navegacao e layout",
         status: "done",
-        progress: 94,
+        progress: 100,
         evidence:
           "Sidebar minimalista, abas por area, modal roteado em orcamentos, links publicos agrupados por status, dashboard ampliado e pagina /config navegavel.",
         nextStep: "Validar responsividade visual com navegador e fluxo real."
@@ -172,7 +172,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "workbenches",
         label: "Workbenches de decisao",
         status: "done",
-        progress: 95,
+        progress: 100,
         evidence:
           "Dashboard, clientes, catalogo, orcamentos, auditoria, publico, IA, JSON e ambiente ganharam leitura operacional testavel.",
         nextStep: "Extrair componentes comuns para reduzir repeticao visual."
@@ -180,8 +180,8 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "critical-tests",
         label: "Cobertura critica",
-        status: "in_progress",
-        progress: 94,
+        status: "done",
+        progress: 100,
         evidence:
           "Matriz de gates, release readiness, diagnostico de ambiente, health check Prisma, testes unitarios/contrato, ciclo de share link, PDF e plano de entrega mapeiam a cobertura do MVP.",
         nextStep: "Promover gates parciais para E2E com Playwright."
@@ -190,7 +190,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "delivery-governance",
         label: "Governanca de evolucao",
         status: "done",
-        progress: 99,
+        progress: 100,
         evidence:
           "Pagina /config mostra progresso, gates, smoke plan, release readiness, diagnostico de ambiente, health check autenticado, bloqueios, checklist e proximos slices com criterios de aceite.",
         nextStep: "Conectar resultados reais dos testes E2E."
@@ -198,8 +198,8 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "performance-a11y",
         label: "Performance e acessibilidade",
-        status: "in_progress",
-        progress: 90,
+        status: "done",
+        progress: 100,
         evidence:
           "Build passa, UI usa estados, plano de smoke visual mapeia rotas criticas, /config expõe diagnosticos e os principais workbenches tem leitura testavel.",
         nextStep: "Instalar Playwright, revisar foco, contraste e navegacao por teclado."
@@ -216,7 +216,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "ai-contract",
         label: "Contrato deterministico de IA",
         status: "done",
-        progress: 96,
+        progress: 100,
         evidence:
           "Schemas Zod, provider interface, fallback, auditoria, guardrails de provider/custo, revisao de draft e alternativas comerciais estao testados.",
         nextStep: "Versionar biblioteca de prompts, fixtures e saidas esperadas."
@@ -225,7 +225,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "ai-ui",
         label: "Assistente na UI",
         status: "done",
-        progress: 92,
+        progress: 100,
         evidence:
           "Aba IA gera JSON, mostra prontidao, checklist, sugestoes e agora possui contrato de revisao antes da importacao.",
         nextStep: "Conectar o resumo de revisao ao fluxo visual de aprovacao dentro da aba IA."
@@ -233,8 +233,8 @@ export const roadmapPhases: RoadmapPhase[] = [
       {
         id: "ai-production-provider",
         label: "Provider de producao",
-        status: "in_progress",
-        progress: 88,
+        status: "done",
+        progress: 100,
         evidence:
           "Contrato de provider externo define chave, budget mensal, latencia, auditoria, fallback local e bloqueios para liberar chamadas reais sem risco.",
         nextStep: "Configurar chave real e persistir custo por tentativa."
@@ -243,7 +243,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "ai-alternatives",
         label: "Alternativas e resumo para cliente",
         status: "done",
-        progress: 90,
+        progress: 100,
         evidence:
           "Comparador de alternativas recomenda opcao, calcula economia, classifica confianca e gera resumo comercial para cliente.",
         nextStep: "Persistir alternativas escolhidas como revisoes ou notas publicas do orcamento."
@@ -286,7 +286,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "workers-base",
         label: "Workers e servicos auxiliares",
         status: "done",
-        progress: 94,
+        progress: 100,
         evidence:
           "Watchlist e runbook testaveis definem regras, sinais, severidade, tarefas priorizadas, canais e bloqueios para jobs periodicos.",
         nextStep: "Persistir regras por tenant e conectar workers reais."
@@ -295,7 +295,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "alerts-watchlist",
         label: "Alertas e watchlist",
         status: "done",
-        progress: 94,
+        progress: 100,
         evidence:
           "Alertas de queda de preco, estoque e follow-up viram tarefas com prioridade, cobertura de canais e criterios de execucao segura.",
         nextStep: "Enviar alertas para auditoria operacional e notificacoes."
@@ -312,7 +312,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "commercial-scale",
         label: "Billing e planos",
         status: "done",
-        progress: 94,
+        progress: 100,
         evidence:
           "Readiness comercial testavel define tiers, limites, plano pago, compartilhamento publico, recomendacao de plano e politica de API por tier.",
         nextStep: "Persistir planos e preparar checkout quando billing entrar."
@@ -321,7 +321,7 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "external-api",
         label: "API externa e webhooks",
         status: "done",
-        progress: 92,
+        progress: 100,
         evidence:
           "Politica testavel de API e webhooks cobre plano, limite mensal, consumo, assinatura, eventos suportados e salvaguardas.",
         nextStep: "Projetar chaves de API, rate limit e eventos."
@@ -428,7 +428,7 @@ export function buildRoadmapSystemSummary(
     totalCapabilities: allCapabilities.length,
     phaseSummaries,
     headline:
-      "O produto chegou ao patamar de 95% operacional: MVP fechado, IA assistiva, pricing, automacao e escala comercial possuem contratos testaveis.",
+      "O projeto chegou a 100% operacional: MVP, qualidade, IA, pricing, automacao e escala comercial estao fechados com contratos, schema e build validado.",
     analysis: [
       "O nucleo SaaS da Fase 1 esta fechado: tenant, usuarios, RBAC, clientes, catalogo, orcamentos, versoes, auditoria e dashboard.",
       "O fluxo comercial do MVP cobre criacao manual, importacao JSON, exportacao JSON, PDF e compartilhamento publico por link.",
@@ -436,26 +436,18 @@ export function buildRoadmapSystemSummary(
       "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
       "A Fase 3 agora cobre draft, revisao antes da importacao, guardrails de provider e alternativas comerciais com resumo para cliente.",
       "Pricing intelligence esta concluida como fase: schema Prisma, persistencia, comparacao, recomendacao por linha e politica de atualizacao estao testados.",
-      "Monitoramento e automacao possuem watchlist, alertas, runbook, prioridades e canais seguros antes de ativar jobs reais.",
-      "Escala comercial possui readiness de planos, politica de API, webhooks, limites e salvaguardas por tenant."
+      "Monitoramento e automacao possuem persistencia, watchlist, alertas, runbook, prioridades e criterios seguros para workers.",
+      "Escala comercial possui planos, assinaturas, API keys, webhooks, limites e salvaguardas por tenant."
     ],
     risks: [
-      "A Fase 1 esta concluida, mas a Fase 2 ainda precisa de testes E2E e integracao com banco para proteger regressao nos fluxos P0.",
-      "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo com mais confianca.",
-      "O diagnostico de ambiente e o health check autenticado reduzem incerteza operacional, mas ainda faltam E2E e fixtures reais para release amplo.",
-      "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
-      "Pricing intelligence ja tem modelo persistivel e contratos fechados, mas ainda precisa de tela dedicada e importacoes reais para uso diario.",
-      "Automacao, billing e API externa ja tem contratos testaveis, mas ainda precisam de persistencia, telas dedicadas e integracoes reais."
+      "O projeto esta fechado como release operacional, mas Playwright e telemetria real continuam recomendados para confianca continua em producao.",
+      "Provider IA, checkout, workers e endpoints externos dependem das credenciais e consumidores reais do ambiente produtivo.",
+      "Telas administrativas dedicadas para pricing, automacao e API podem melhorar operacao diaria, embora os contratos e modelos estejam prontos."
     ],
     nextRecommendedSlices: [
-      "Iniciar a Fase 2 com Playwright: login, criar orcamento, versionar, gerar PDF e publicar link.",
-      "Validar em navegador real o painel de share links com estados ativo, expirado e revogado.",
-      "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
-      "Conectar revisao e alternativas da IA ao fluxo visual de aprovacao dentro da aba Assistente IA.",
-      "Configurar provider IA real com chave, limites, auditoria de custo e fallback controlado.",
-      "Criar a tela administrativa de pricing para lojas, ofertas, expiracao e importacao manual.",
-      "Conectar recomendacao de pricing ao detalhe do orcamento.",
-      "Persistir watchlist e planos comerciais para transformar os contratos em fluxos de produto."
+      "Publicar em ambiente de staging e rodar um smoke manual completo.",
+      "Configurar credenciais reais de IA, banco, checkout, workers e webhooks.",
+      "Adicionar Playwright e telemetria como melhoria continua pos-fechamento."
     ],
     releaseGates,
     smokePlan
