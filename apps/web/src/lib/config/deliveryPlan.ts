@@ -338,6 +338,51 @@ const completedThisCycle: DeliverySlice[] = [
       "Webhooks exigem segredo de assinatura e eventos suportados.",
       "Salvaguardas documentam rate limit, chaves por tenant e revogacao."
     ]
+  },
+  {
+    id: "pricing-prisma-persistence",
+    title: "Persistencia Prisma para lojas e ofertas",
+    area: "Pricing intelligence",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 5,
+    acceptanceCriteria: [
+      "Schema Prisma modela PriceStore e ProductOffer por tenant.",
+      "Ofertas possuem produto, loja, fonte, preco, observacao e expiracao.",
+      "Migration cria indices e relacionamentos para comparacao multi-loja."
+    ]
+  },
+  {
+    id: "pricing-persistence-contract",
+    title: "Contrato de integridade da base de pricing",
+    area: "Pricing intelligence",
+    priority: "p1",
+    effort: "m",
+    impact: "high",
+    status: "done",
+    progressLift: 4,
+    acceptanceCriteria: [
+      "Base persistida valida lojas ativas, slugs unicos e referencias quebradas.",
+      "Cobertura por produto considera apenas ofertas frescas.",
+      "Moeda divergente e ofertas expiradas aparecem como avisos operacionais."
+    ]
+  },
+  {
+    id: "pricing-refresh-policy",
+    title: "Politica de atualizacao de ofertas",
+    area: "Pricing intelligence",
+    priority: "p1",
+    effort: "s",
+    impact: "high",
+    status: "done",
+    progressLift: 3,
+    acceptanceCriteria: [
+      "Ofertas expiradas geram tarefas de alta prioridade.",
+      "Precos antigos entram no proximo ciclo de importacao.",
+      "Resumo de frescor orienta quando coletar ou importar novamente."
+    ]
   }
 ];
 
@@ -400,15 +445,15 @@ const plannedSlices: Omit<DeliverySlice, "status">[] = [
   },
   {
     id: "pricing-ui-and-persistence",
-    title: "Persistir pricing e expor recomendacoes na UI",
+    title: "Tela de pricing e recomendacoes no orcamento",
     area: "Pricing intelligence",
     priority: "p1",
     effort: "l",
     impact: "high",
     progressLift: 4,
     acceptanceCriteria: [
-      "Prisma modela loja, oferta e preco observado.",
-      "Produto pode receber ofertas importadas manualmente.",
+      "Admin gerencia lojas, ofertas e validade pela aplicacao.",
+      "Produto pode receber ofertas importadas manualmente pela UI.",
       "Orcamento mostra economia potencial e melhor oferta por linha."
     ]
   },

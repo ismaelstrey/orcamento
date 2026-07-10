@@ -260,19 +260,19 @@ export const roadmapPhases: RoadmapPhase[] = [
         id: "pricing-model",
         label: "Modelo de pricing",
         status: "done",
-        progress: 96,
+        progress: 100,
         evidence:
-          "Workbench testavel de ofertas manuais define loja, preco observado, economia, cobertura, melhor oferta e recomendacao por linha de orcamento.",
-        nextStep: "Persistir loja, oferta, preco observado e fonte no Prisma."
+          "Prisma modela PriceStore/ProductOffer, fonte da oferta, loja, preco observado, expiracao, indices e contrato de persistencia testavel.",
+        nextStep: "Expor manutencao de lojas e ofertas em uma tela administrativa."
       },
       {
         id: "price-comparison",
         label: "Comparacao multi-loja",
         status: "done",
-        progress: 94,
+        progress: 100,
         evidence:
-          "Comparacao multi-loja calcula melhor oferta, linhas otimizadas, oportunidades, itens sem referencia e economia potencial do orcamento.",
-        nextStep: "Conectar ofertas manuais ao produto e ao detalhe do orcamento."
+          "Comparacao multi-loja calcula melhor oferta, linhas otimizadas, oportunidades, itens sem referencia, economia potencial e politica de atualizacao.",
+        nextStep: "Conectar recomendacoes de pricing ao detalhe do orcamento e automatizar importacoes."
       }
     ]
   },
@@ -435,7 +435,7 @@ export function buildRoadmapSystemSummary(
       "A qualidade de uso evoluiu bem com abas, sidebar compacta, modal roteado, workbenches, pre-validacoes e acompanhamento em /config.",
       "A governanca operacional agora mostra score de release, bloqueios, checklist, ordem recomendada, diagnostico seguro de ambiente e health check runtime do banco.",
       "A Fase 3 agora cobre draft, revisao antes da importacao, guardrails de provider e alternativas comerciais com resumo para cliente.",
-      "Pricing intelligence orienta linhas de orcamento com melhor oferta, economia potencial e lacunas de referencia.",
+      "Pricing intelligence esta concluida como fase: schema Prisma, persistencia, comparacao, recomendacao por linha e politica de atualizacao estao testados.",
       "Monitoramento e automacao possuem watchlist, alertas, runbook, prioridades e canais seguros antes de ativar jobs reais.",
       "Escala comercial possui readiness de planos, politica de API, webhooks, limites e salvaguardas por tenant."
     ],
@@ -444,7 +444,8 @@ export function buildRoadmapSystemSummary(
       "O console de release readiness organiza bloqueios e checklist, mas ainda depende de automacao E2E real para liberar MVP amplo com mais confianca.",
       "O diagnostico de ambiente e o health check autenticado reduzem incerteza operacional, mas ainda faltam E2E e fixtures reais para release amplo.",
       "PDF, link publico e expiracao/revogacao precisam de validacao visual e automatizada mais forte.",
-      "Pricing intelligence, automacao, billing e API externa ja tem contratos testaveis, mas ainda precisam de persistencia, telas dedicadas e integracoes reais."
+      "Pricing intelligence ja tem modelo persistivel e contratos fechados, mas ainda precisa de tela dedicada e importacoes reais para uso diario.",
+      "Automacao, billing e API externa ja tem contratos testaveis, mas ainda precisam de persistencia, telas dedicadas e integracoes reais."
     ],
     nextRecommendedSlices: [
       "Iniciar a Fase 2 com Playwright: login, criar orcamento, versionar, gerar PDF e publicar link.",
@@ -452,8 +453,9 @@ export function buildRoadmapSystemSummary(
       "Extrair componentes comuns dos workbenches para reduzir repeticao visual.",
       "Conectar revisao e alternativas da IA ao fluxo visual de aprovacao dentro da aba Assistente IA.",
       "Configurar provider IA real com chave, limites, auditoria de custo e fallback controlado.",
-      "Persistir ofertas manuais, watchlist e planos comerciais para transformar os contratos em fluxos de produto.",
-      "Conectar recomendacao de pricing, runbook de automacao e politica de API nas telas administrativas."
+      "Criar a tela administrativa de pricing para lojas, ofertas, expiracao e importacao manual.",
+      "Conectar recomendacao de pricing ao detalhe do orcamento.",
+      "Persistir watchlist e planos comerciais para transformar os contratos em fluxos de produto."
     ],
     releaseGates,
     smokePlan
